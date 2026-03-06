@@ -1,0 +1,76 @@
+{
+  "project_info": {
+    "project_number": "361630791216",
+    "project_id": "dualnback-253fe",
+    "storage_bucket": "dualnback-253fe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:361630791216:android:d570b12360b4633d9b9ff5",
+        "android_client_info": {
+          "package_name": "com.chaos.dualnback"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "361630791216-bl7apcaht3so3nbcrvb6cispu6mcqmdn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcMI8qmJsuECEH9arStyTKYG2Y54WjAok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "361630791216-bl7apcaht3so3nbcrvb6cispu6mcqmdn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:361630791216:android:91bfa94505fc1d319b9ff5",
+        "android_client_info": {
+          "package_name": "com.example.dualnback"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "361630791216-tvp8qaf360d37b9m30n5dhg1ireva13o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.dualnback",
+            "certificate_hash": "6e2f73fc63fef3785c902269aa83bf2fa4ec2d02"
+          }
+        },
+        {
+          "client_id": "361630791216-bl7apcaht3so3nbcrvb6cispu6mcqmdn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcMI8qmJsuECEH9arStyTKYG2Y54WjAok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "361630791216-bl7apcaht3so3nbcrvb6cispu6mcqmdn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

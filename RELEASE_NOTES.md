@@ -1,0 +1,20 @@
+# Dual N-Back Version 1.0.0 Release Notes
+
+Welcome to the official 1.0.0 release of Dual N-Back! This initial version includes a fully functional brain training experience across Android and Web.
+
+## Features
+- **Core Dual N-Back Engine**: Train your working memory with simultaneous visual and auditory stimuli.
+- **Dynamic N-Level Progression**: The game automatically adjusts difficulty based on your performance to keep you in the optimal learning zone.
+- **Daily Training Mode**: Complete 20 blocks a day to build a streak and track your cognitive growth over time.
+- **Practice Mode**: Sandbox environment to warm up or test specific N-levels without affecting your daily statistics.
+- **Comprehensive Statistics**: View your history, detailed score sheets for each session, and track your daily streaks via an interactive calendar.
+- **Interactive Tutorial**: A step-by-step interactive "How to Play" guide designed for first-time users to grasp the mechanics easily.
+- **Cross-Platform Sync**: Built-in support for Firebase Authentication (Guest & Google Sign-In) to keep your progress synced across devices.
+- **Customizable Experience**: Toggle sound, vibration feedback, dark mode, and debug diagnostic views from the settings panel.
+
+## Fixes & Polish
+- Optimized UI layout for seamless scaling across mobile phones, tablets, and desktop browsers.
+- Polished home screen with modernized task tiles and responsive grid displays for daily training progress.
+- Cleaned up audio sprite loading to ensure immediate audio feedback.
+
+Thank you for playing and upgrading your working memory!

@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // All user data lives under /users/{uid}.
+    // Users can only read/write their own documents.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Training profile (N-level, streak)
+      match /profile/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Training days – one doc per calendar date
+      match /training_days/{date} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Historical game sessions
+      match /game_sessions/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}
