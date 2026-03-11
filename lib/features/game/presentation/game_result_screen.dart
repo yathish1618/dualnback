@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'widgets/practice_mode_sheet.dart';
 import '../../stats/domain/game_session.dart';
 import '../../stats/domain/score_sheet_item.dart';
 import '../../game/state/game_provider.dart';
@@ -35,14 +36,15 @@ class GameResultScreen extends ConsumerWidget {
     final isTraining = _mode == 'training';
 
     // Mistake counts for N-level adaptation info
-    final posMistakes =
-        gameState.missedPositionMatches + gameState.falsePositionMatches;
-    final audMistakes =
-        gameState.missedAudioMatches + gameState.falseAudioMatches;
+    final posMistakes = gameState.falsePositionMatches;
+    final posMisses = gameState.missedPositionMatches;
+    final audMistakes = gameState.falseAudioMatches;
+    final audMisses = gameState.missedAudioMatches;
+
     final nextN = adaptNLevel(
       currentN: gameState.currentNLevel,
-      positionMistakes: posMistakes,
-      audioMistakes: audMistakes,
+      positionMistakes: posMistakes + posMisses,
+      audioMistakes: audMistakes + audMisses,
     );
     final nChanged = nextN != gameState.currentNLevel;
 
@@ -77,7 +79,9 @@ class GameResultScreen extends ConsumerWidget {
                     context,
                     gameState,
                     posMistakes,
+                    posMisses,
                     audMistakes,
+                    audMisses,
                   ),
                 ),
                 const Gap(20),
@@ -118,7 +122,9 @@ class GameResultScreen extends ConsumerWidget {
     BuildContext context,
     dynamic state,
     int posMistakes,
+    int posMisses,
     int audMistakes,
+    int audMisses,
   ) {
     final cs = Theme.of(context).colorScheme;
     return Container(
@@ -152,29 +158,33 @@ class GameResultScreen extends ConsumerWidget {
             ],
           ),
           const Divider(height: 28),
-          _statRow(context, 'Position hits', '${state.correctPositionMatches}'),
-          _statRow(context, 'Audio hits', '${state.correctAudioMatches}'),
+          _statRow(context, 'Position Hits', '${state.correctPositionMatches}'),
+          _statRow(context, 'Audio Hits', '${state.correctAudioMatches}'),
+          const Gap(8),
           _statRow(
             context,
-            'Position mistakes',
+            'Position Mistakes',
             '$posMistakes',
-            color:
-                posMistakes > 5
-                    ? Colors.red
-                    : posMistakes < 3
-                    ? Colors.green
-                    : null,
+            color: posMistakes > 0 ? Colors.red : Colors.green,
           ),
           _statRow(
             context,
-            'Audio mistakes',
+            'Audio Mistakes',
             '$audMistakes',
-            color:
-                audMistakes > 5
-                    ? Colors.red
-                    : audMistakes < 3
-                    ? Colors.green
-                    : null,
+            color: audMistakes > 0 ? Colors.red : Colors.green,
+          ),
+          const Gap(8),
+          _statRow(
+            context,
+            'Position Misses',
+            '$posMisses',
+            color: posMisses > 0 ? Colors.red : Colors.green,
+          ),
+          _statRow(
+            context,
+            'Audio Misses',
+            '$audMisses',
+            color: audMisses > 0 ? Colors.red : Colors.green,
           ),
         ],
       ),
@@ -363,61 +373,23 @@ class _TrainingActions extends ConsumerWidget {
 }
 
 // ─── Practice-mode actions ────────────────────────────────────────────────────
-class _PracticeActions extends ConsumerStatefulWidget {
+class _PracticeActions extends ConsumerWidget {
   final int currentN;
   const _PracticeActions({required this.currentN});
 
   @override
-  ConsumerState<_PracticeActions> createState() => _PracticeActionsState();
-}
-
-class _PracticeActionsState extends ConsumerState<_PracticeActions> {
-  late int _selectedN;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedN = widget.currentN;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // N-level picker
-        Text(
-          'N-Level',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: cs.onSurface.withValues(alpha: 0.5),
-            letterSpacing: 1,
-          ),
-        ),
-        const Gap(8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: List.generate(9, (i) {
-            final n = i + 1;
-            return ChoiceChip(
-              label: Text('N-$n'),
-              selected: _selectedN == n,
-              onSelected: (_) => setState(() => _selectedN = n),
-            );
-          }),
-        ),
-        const Gap(20),
-
-        // One More Time — uses selected N
+        // One More Time — opens practice mode picker
         SizedBox(
           width: double.infinity,
           height: 56,
           child: FilledButton.icon(
             icon: const Icon(Icons.replay_rounded),
             label: const Text(
-              'ONE MORE TIME',
+              'TRY AGAIN',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.2,
@@ -431,10 +403,7 @@ class _PracticeActionsState extends ConsumerState<_PracticeActions> {
             ),
             onPressed: () {
               ref.read(gameProvider.notifier).stopGame();
-              context.go(
-                '/game',
-                extra: {'nLevel': _selectedN, 'mode': 'practice'},
-              );
+              showPracticePickerDialog(context);
             },
           ),
         ),

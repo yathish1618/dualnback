@@ -6,6 +6,7 @@ import '../state/training_provider.dart';
 import '../domain/training_models.dart';
 import '../../stats/domain/game_session.dart';
 import '../../stats/domain/score_sheet_item.dart';
+import '../../../core/widgets/n_level_badge.dart';
 
 class TrainingSessionScreen extends ConsumerWidget {
   const TrainingSessionScreen({super.key});
@@ -53,54 +54,7 @@ class TrainingSessionScreen extends ConsumerWidget {
                         ),
                       ),
                       // N-badge (same as elsewhere)
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Theme.of(context).colorScheme.primary,
-                              Theme.of(context).colorScheme.secondary,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.4),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'N',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                '${profile.currentNLevel}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      NLevelBadge(nLevel: profile.currentNLevel),
                     ],
                   ),
                   const Gap(20),

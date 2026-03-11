@@ -66,5 +66,4 @@ class DefaultFirebaseOptions {
     projectId: 'dualnback-253fe',
     storageBucket: 'dualnback-253fe.firebasestorage.app',
   );
-
 }

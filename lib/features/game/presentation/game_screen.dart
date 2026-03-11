@@ -5,6 +5,7 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/widgets/n_level_badge.dart';
 import '../../game/domain/game_state.dart';
 import '../../settings/domain/game_settings_provider.dart';
 import '../../game/state/game_provider.dart';
@@ -119,6 +120,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         if (settings.vibrationEnabled) {
           if (next == false) {
             HapticFeedback.heavyImpact();
+            Future.delayed(const Duration(milliseconds: 150), () {
+              HapticFeedback.heavyImpact();
+            });
           } else if (next == true) {
             HapticFeedback.lightImpact();
           }
@@ -131,9 +135,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final posFeedback = ref.watch(positionFeedbackProvider);
     final audFeedback = ref.watch(audioFeedbackProvider);
     final positionFeedbackColor =
-        posFeedback == null ? null : (posFeedback ? Colors.green : Colors.red);
+        posFeedback == null
+            ? null
+            : (!settings.visualFeedbackEnabled
+                ? Colors.grey
+                : (posFeedback ? Colors.green : Colors.red));
+
     final audioFeedbackColor =
-        audFeedback == null ? null : (audFeedback ? Colors.green : Colors.red);
+        audFeedback == null
+            ? null
+            : (!settings.visualFeedbackEnabled
+                ? Colors.grey
+                : (audFeedback ? Colors.green : Colors.red));
 
     // Listen for Game Status changes – navigate after the build frame completes
     ref.listen(gameProvider.select((s) => s.status), (prev, next) {
@@ -501,36 +514,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               },
             ),
           const SizedBox(width: 4),
-          // ── N-level badge ──────────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [cs.primary, cs.secondary]),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'N',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '${state.currentNLevel}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          NLevelBadge(nLevel: state.currentNLevel),
         ],
       ),
     );

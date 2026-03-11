@@ -45,16 +45,18 @@ const int _nLevel = 2;
 // ---------------------------------------------------------------------------
 enum _PhaseAction { none, highlightN, showGrid, showTrialExplain, trial, wrap }
 
+enum _ExpectedMatch { none, position, audio }
+
 class _Phase {
   final String narration;
   final _PhaseAction action;
   final int? trialIndex; // only when action == trial
-  final bool emphasizeButtons; // pulse the pos/aud buttons
+  final _ExpectedMatch expectedMatch;
   const _Phase({
     required this.narration,
     this.action = _PhaseAction.none,
     this.trialIndex,
-    this.emphasizeButtons = false,
+    this.expectedMatch = _ExpectedMatch.none,
   });
 }
 
@@ -119,7 +121,6 @@ const List<_Phase> _phases = [
         "• If position of Trial 3 is also Top-Left → tap **Position** i.e., Position has matched.\n"
         "• If letter of Trial 3 is also C → tap **Audio** i.e., Audio has matched.",
     action: _PhaseAction.showGrid,
-    emphasizeButtons: false,
   ),
   // 7 – Trial 3 live
   _Phase(
@@ -127,7 +128,7 @@ const List<_Phase> _phases = [
         "**Position matched Trial 1!** Both are Top-Left.\n\nTap the **Position** button when you see a match like this! ✅",
     action: _PhaseAction.trial,
     trialIndex: 2,
-    emphasizeButtons: true,
+    expectedMatch: _ExpectedMatch.position,
   ),
   // 8 – Trial 4 live
   _Phase(
@@ -136,7 +137,7 @@ const List<_Phase> _phases = [
         "Watch and listen... 🎵\n\nThe **letter matched** — both say 'H'! Tap **Audio** when the sound repeats. ✅",
     action: _PhaseAction.trial,
     trialIndex: 3,
-    emphasizeButtons: true,
+    expectedMatch: _ExpectedMatch.audio,
   ),
   // 9 – Trial 5 live
   _Phase(
@@ -145,7 +146,6 @@ const List<_Phase> _phases = [
         "Watch and listen...\n\nNeither position nor audio matches — **don't press anything**. Correct rejections count too! ✅",
     action: _PhaseAction.trial,
     trialIndex: 4,
-    emphasizeButtons: false,
   ),
   // 10 – Wrap up
   _Phase(
@@ -212,9 +212,10 @@ class _TutorialScreenState extends State<TutorialScreen>
 
   // History of revealed trials for the debug table
   final List<_Trial> _history = [];
-  // Which rows have match status computed (trial index >= nLevel)
   bool _showButtons = false;
-  bool _pulseButtons = false;
+
+  bool? _posFeedback;
+  bool? _audFeedback;
 
   Timer? _trialTimer;
   Timer? _stopTimer;
@@ -268,8 +269,35 @@ class _TutorialScreenState extends State<TutorialScreen>
     final p = _phases[nextPhase];
     setState(() {
       _phase = nextPhase;
-      _showButtons = p.emphasizeButtons || nextPhase >= 7;
-      _pulseButtons = p.emphasizeButtons;
+      _showButtons = p.expectedMatch != _ExpectedMatch.none || nextPhase >= 7;
+      _posFeedback = null;
+      _audFeedback = null;
+    });
+    if (p.action == _PhaseAction.trial && p.trialIndex != null) {
+      _runTrial(p.trialIndex!);
+    }
+  }
+
+  void _previous() {
+    if (_trialRunning) return;
+    if (_phase == 0) return;
+
+    // Clear history forward of current trial playback index
+    if (_history.isNotEmpty) {
+      final currentP = _phases[_phase];
+      if (currentP.action == _PhaseAction.trial &&
+          currentP.trialIndex != null) {
+        _history.removeWhere((t) => t == _demo[currentP.trialIndex!]);
+      }
+    }
+
+    final prevPhase = _phase - 1;
+    final p = _phases[prevPhase];
+    setState(() {
+      _phase = prevPhase;
+      _showButtons = p.expectedMatch != _ExpectedMatch.none || prevPhase >= 7;
+      _posFeedback = null;
+      _audFeedback = null;
     });
     if (p.action == _PhaseAction.trial && p.trialIndex != null) {
       _runTrial(p.trialIndex!);
@@ -280,6 +308,37 @@ class _TutorialScreenState extends State<TutorialScreen>
     _trialTimer?.cancel();
     _stopTimer?.cancel();
     context.pop();
+  }
+
+  void _handleButtonTap(bool isPosition) {
+    if (_trialRunning) return;
+    final phase = _phases[_phase];
+
+    // Evaluate if user tapped the currently expected button for this phase
+    bool isCorrect = false;
+    if (isPosition && phase.expectedMatch == _ExpectedMatch.position) {
+      isCorrect = true;
+    } else if (!isPosition && phase.expectedMatch == _ExpectedMatch.audio) {
+      isCorrect = true;
+    }
+
+    setState(() {
+      if (isPosition) {
+        _posFeedback = isCorrect;
+      } else {
+        _audFeedback = isCorrect;
+      }
+    });
+
+    // Clear feedback shortly after
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          _posFeedback = null;
+          _audFeedback = null;
+        });
+      }
+    });
   }
 
   // ── Trial playback ────────────────────────────────────────────────────────
@@ -376,60 +435,94 @@ class _TutorialScreenState extends State<TutorialScreen>
             ),
 
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // ── Narration card ─────────────────────────────────────
-                    _NarrationCard(phase: _phase, phases: _phases),
+              child: GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity! < -300) {
+                    // Swipe left -> Next
+                    _next();
+                  } else if (details.primaryVelocity! > 300) {
+                    // Swipe right -> Previous
+                    _previous();
+                  }
+                },
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // ── Narration card ─────────────────────────────────────
+                      _NarrationCard(phase: _phase, phases: _phases),
 
-                    const Gap(16),
+                      const Gap(16),
 
-                    // ── Mini game area ─────────────────────────────────────
-                    if (_phase < 10)
-                      _buildGameArea(context, cs, isHighlightN)
-                    else if (_phase == 11)
-                      _buildTrainingPreview(context, cs),
+                      // ── Mini game area ─────────────────────────────────────
+                      if (_phase < 10)
+                        _buildGameArea(context, cs, isHighlightN)
+                      else if (_phase == 11)
+                        _buildTrainingPreview(context, cs),
 
-                    const Gap(16),
+                      const Gap(16),
 
-                    // ── History table ──────────────────────────────────────
-                    if (_history.isNotEmpty && _phase < 10)
-                      _buildHistoryTable(context, cs),
+                      // ── History table ──────────────────────────────────────
+                      if (_history.isNotEmpty && _phase < 10)
+                        _buildHistoryTable(context, cs),
 
-                    const Gap(12),
-                  ],
+                      const Gap(12),
+                    ],
+                  ),
                 ),
               ),
             ),
 
-            // ── Next button ───────────────────────────────────────────────
+            // ── Next/Prev buttons ─────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _trialRunning ? null : _next,
-                  icon: Icon(
-                    _isLastPhase
-                        ? Icons.rocket_launch_rounded
-                        : Icons.arrow_forward_rounded,
-                  ),
-                  label: Text(
-                    _isLastPhase ? "LET'S PLAY!" : 'Next',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+              child: Row(
+                children: [
+                  if (_phase > 0) ...[
+                    Expanded(
+                      flex: 1,
+                      child: FilledButton.icon(
+                        onPressed: _trialRunning ? null : _previous,
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        label: const Text('Prev'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          backgroundColor: cs.surfaceContainerHighest,
+                          foregroundColor: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    const Gap(12),
+                  ],
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _trialRunning ? null : _next,
+                      icon: Icon(
+                        _isLastPhase
+                            ? Icons.rocket_launch_rounded
+                            : Icons.arrow_forward_rounded,
+                      ),
+                      label: Text(
+                        _isLastPhase ? "LET'S PLAY!" : 'Next',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
                     ),
                   ),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
+                ],
               ),
             ),
           ],
@@ -621,15 +714,19 @@ class _TutorialScreenState extends State<TutorialScreen>
         _ControlButton(
           label: 'Position',
           icon: Icons.grid_on_rounded,
-          isPulsing: _pulseButtons,
+          isPulsing: _phases[_phase].expectedMatch == _ExpectedMatch.position,
+          feedback: _posFeedback,
           color: cs.primary,
+          onTap: () => _handleButtonTap(true),
         ),
         const Gap(16),
         _ControlButton(
           label: 'Audio',
           icon: Icons.volume_up_rounded,
-          isPulsing: _pulseButtons,
+          isPulsing: _phases[_phase].expectedMatch == _ExpectedMatch.audio,
+          feedback: _audFeedback,
           color: cs.secondary,
+          onTap: () => _handleButtonTap(false),
         ),
       ],
     );
@@ -942,12 +1039,16 @@ class _ControlButton extends StatefulWidget {
   final IconData icon;
   final bool isPulsing;
   final Color color;
+  final bool? feedback;
+  final VoidCallback onTap;
 
   const _ControlButton({
     required this.label,
     required this.icon,
     required this.isPulsing,
     required this.color,
+    this.feedback,
+    required this.onTap,
   });
 
   @override
@@ -991,59 +1092,78 @@ class _ControlButtonState extends State<_ControlButton>
 
   @override
   Widget build(BuildContext context) {
+    Color boxColor =
+        widget.isPulsing
+            ? widget.color.withValues(alpha: 0.15)
+            : Theme.of(context).colorScheme.surfaceContainerHighest;
+
+    Color activeColor = widget.color;
+
+    if (widget.feedback != null) {
+      boxColor = widget.feedback! ? Colors.green : Colors.red;
+      activeColor = Colors.white;
+    }
+
     return ScaleTransition(
       scale: _scale,
-      child: Container(
-        width: 120,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color:
-              widget.isPulsing
-                  ? widget.color.withValues(alpha: 0.15)
-                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color:
-                widget.isPulsing
-                    ? widget.color.withValues(alpha: 0.7)
-                    : Theme.of(context).colorScheme.outlineVariant,
-            width: widget.isPulsing ? 2 : 1,
-          ),
-          boxShadow:
-              widget.isPulsing
-                  ? [
-                    BoxShadow(
-                      color: widget.color.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                    ),
-                  ]
-                  : null,
-        ),
-        child: Column(
-          children: [
-            Icon(widget.icon, color: widget.color, size: 22),
-            const Gap(4),
-            Text(
-              widget.label,
-              style: TextStyle(
-                color: widget.color,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 120,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: boxColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color:
+                    widget.feedback != null
+                        ? Colors.transparent
+                        : (widget.isPulsing
+                            ? widget.color.withValues(alpha: 0.7)
+                            : Theme.of(context).colorScheme.outlineVariant),
+                width: widget.isPulsing && widget.feedback == null ? 2 : 1,
               ),
+              boxShadow:
+                  widget.isPulsing && widget.feedback == null
+                      ? [
+                        BoxShadow(
+                          color: widget.color.withValues(alpha: 0.3),
+                          blurRadius: 12,
+                        ),
+                      ]
+                      : null,
             ),
-            if (widget.isPulsing) ...[
-              const Gap(4),
-              Text(
-                'TAP THIS!',
-                style: TextStyle(
-                  color: widget.color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
+            child: Column(
+              children: [
+                Icon(widget.icon, color: activeColor, size: 22),
+                const Gap(4),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: activeColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-            ],
-          ],
+                if (widget.isPulsing && widget.feedback == null) ...[
+                  const Gap(4),
+                  Text(
+                    'TAP THIS!',
+                    style: TextStyle(
+                      color: activeColor,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -1,12 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
+import '../../core/widgets/n_level_badge.dart';
+import '../game/presentation/widgets/practice_mode_sheet.dart';
 import '../auth/providers/auth_provider.dart';
 import '../training/state/training_provider.dart';
 import '../training/domain/training_models.dart';
-
-final _homeTabProvider = StateProvider<int>((ref) => 0);
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -60,28 +60,28 @@ class HomeScreen extends ConsumerWidget {
 
     void onNavTap(int i) {
       switch (i) {
-        case 0:
-          ref.read(_homeTabProvider.notifier).state = 0;
-          break;
         case 1:
-          context.push('/stats');
-          break;
-        case 2:
-          context.push('/calendar');
-          break;
-        case 3:
           if (!profile.hasSeenTutorial) {
             _showTutorialPrompt(context, ref, profile, () {
-              _showPracticeDialog(context, profile.currentNLevel);
+              showPracticePickerDialog(context);
             });
           } else {
-            _showPracticeDialog(context, profile.currentNLevel);
+            showPracticePickerDialog(context);
           }
+          break;
+        case 2:
+          context.push('/stats');
+          break;
+        case 3:
+          context.push('/calendar');
           break;
         case 4:
           context.push('/tutorial');
           break;
         case 5:
+          context.push('/about');
+          break;
+        case 6:
           context.push('/settings');
           break;
       }
@@ -103,44 +103,7 @@ class HomeScreen extends ConsumerWidget {
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               actions: [
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.secondary,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'N',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        '${profile.currentNLevel}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                NLevelBadge(nLevel: profile.currentNLevel),
                 const Gap(12),
               ],
             ),
@@ -168,7 +131,7 @@ class HomeScreen extends ConsumerWidget {
                               BoxShadow(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.primary.withValues(alpha: 0.5),
+                                ).colorScheme.primary.withOpacity(0.5),
                                 blurRadius: 28,
                                 offset: Offset.zero,
                               ),
@@ -269,16 +232,6 @@ class HomeScreen extends ConsumerWidget {
       },
     );
   }
-
-  void _showPracticeDialog(BuildContext context, int currentN) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => _PracticePicker(defaultN: currentN),
-    );
-  }
 }
 
 // â”€â”€ Minimal nav tile grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -287,11 +240,12 @@ class _NavTileGrid extends StatelessWidget {
   const _NavTileGrid({required this.onTap});
 
   static const _tiles = [
-    _TileData(1, Icons.bar_chart_rounded, 'Stats', Color(0xFF6C63FF)),
-    _TileData(2, Icons.calendar_month_rounded, 'Calendar', Color(0xFF00BFA5)),
-    _TileData(3, Icons.science_rounded, 'Practice', Color(0xFFFF6D00)),
+    _TileData(1, Icons.science_rounded, 'Practice', Color(0xFFFF6D00)),
+    _TileData(2, Icons.bar_chart_rounded, 'Stats', Color(0xFF6C63FF)),
+    _TileData(3, Icons.calendar_month_rounded, 'Calendar', Color(0xFF00BFA5)),
     _TileData(4, Icons.help_outline_rounded, 'How to Play', Color(0xFF0091EA)),
-    _TileData(5, Icons.settings_rounded, 'Settings', Color(0xFF7CB342)),
+    _TileData(5, Icons.info_outline_rounded, 'About', Color(0xFF9C27B0)),
+    _TileData(6, Icons.settings_rounded, 'Settings', Color(0xFF7CB342)),
   ];
 
   @override
@@ -371,9 +325,9 @@ class _NavTileState extends State<_NavTile>
         scale: _ctrl,
         child: Container(
           decoration: BoxDecoration(
-            color: c.withValues(alpha: 0.1),
+            color: c.withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: c.withValues(alpha: 0.4), width: 1.5),
+            border: Border.all(color: c.withOpacity(0.4), width: 1.5),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -403,7 +357,7 @@ class _NavTileState extends State<_NavTile>
 }
 
 // â”€â”€ Training card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-class _TrainingCard extends StatelessWidget {
+class _TrainingCard extends StatefulWidget {
   final int streak, completedBlocks;
   final bool isSessionDone;
   final VoidCallback onTap;
@@ -416,73 +370,119 @@ class _TrainingCard extends StatelessWidget {
   });
 
   @override
+  State<_TrainingCard> createState() => _TrainingCardState();
+}
+
+class _TrainingCardState extends State<_TrainingCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _glowController;
+  late final Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _glowAnimation = Tween<double>(begin: 0.2, end: 1.0).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final progress = completedBlocks / 20.0;
+    final progress = widget.completedBlocks / 20.0;
 
-    // Shortened labels
     String actionLabel;
-    if (isSessionDone) {
+    if (widget.isSessionDone) {
       actionLabel = '✓ Done';
-    } else if (completedBlocks == 0) {
+    } else if (widget.completedBlocks == 0) {
       actionLabel = '▶ Start';
     } else {
-      actionLabel = '▶ B${completedBlocks + 1}';
+      actionLabel = '▶ B${widget.completedBlocks + 1}';
     }
 
     return InkWell(
-      onTap: isSessionDone ? null : onTap,
+      onTap: widget.isSessionDone ? null : widget.onTap,
       borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors:
-                isSessionDone
-                    ? [
-                      Colors.green.withValues(alpha: 0.15),
-                      Colors.teal.withValues(alpha: 0.10),
-                    ]
-                    : [
-                      cs.primary.withValues(alpha: 0.17),
-                      cs.secondary.withValues(alpha: 0.10),
-                    ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color:
-                isSessionDone
-                    ? Colors.green.withValues(alpha: 0.3)
-                    : cs.primary.withValues(alpha: 0.3),
-          ),
-        ),
+      child: AnimatedBuilder(
+        animation: _glowAnimation,
+        builder: (context, child) {
+          final glowColor = (widget.isSessionDone ? Colors.green : cs.primary)
+              .withOpacity(_glowAnimation.value * 0.5);
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: glowColor,
+                  blurRadius: 20 + (_glowAnimation.value * 10),
+                  spreadRadius: _glowAnimation.value * 2,
+                ),
+              ],
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors:
+                      widget.isSessionDone
+                          ? [
+                            Colors.green.withOpacity(0.15),
+                            Colors.teal.withOpacity(0.10),
+                          ]
+                          : [
+                            cs.primary.withOpacity(0.17),
+                            cs.secondary.withOpacity(0.10),
+                          ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color:
+                      widget.isSessionDone
+                          ? Colors.green.withOpacity(0.3)
+                          : cs.primary.withOpacity(0.3),
+                ),
+              ),
+              child: child,
+            ),
+          );
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Text(
-                  streak > 0 ? '🔥 $streak-Day Streak' : '📅 Daily Training',
+                  widget.streak > 0
+                      ? '🔥 ${widget.streak}-Day Streak'
+                      : '📅 Daily Training',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const Spacer(),
-                if (isSessionDone)
+                if (widget.isSessionDone)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.15),
+                      color: Colors.green.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.green.withValues(alpha: 0.4),
-                      ),
+                      border: Border.all(color: Colors.green.withOpacity(0.4)),
                     ),
                     child: const Text(
                       '✓ Done',
@@ -503,7 +503,7 @@ class _TrainingCard extends StatelessWidget {
                 minHeight: 8,
                 backgroundColor: cs.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation(
-                  isSessionDone ? Colors.green : cs.primary,
+                  widget.isSessionDone ? Colors.green : cs.primary,
                 ),
               ),
             ),
@@ -511,14 +511,13 @@ class _TrainingCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Short: "12/20" instead of "12 / 20 blocks today"
                 Text(
-                  '$completedBlocks/20 blocks',
+                  '${widget.completedBlocks}/20 blocks',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.6),
+                    color: cs.onSurface.withOpacity(0.6),
                   ),
                 ),
-                if (!isSessionDone)
+                if (!widget.isSessionDone)
                   Text(
                     actionLabel,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -535,7 +534,7 @@ class _TrainingCard extends StatelessWidget {
   }
 }
 
-// â”€â”€ 3-tile quick stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── 3-tile quick stats ──────────────────────────────────────────────────
 class _QuickStatsRow extends StatelessWidget {
   final int currentStreak, bestN, bestStreak;
   const _QuickStatsRow({
@@ -546,14 +545,50 @@ class _QuickStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatTile(label: 'Streak', value: '🔥 $currentStreak'),
-        const Gap(10),
-        _StatTile(label: 'Best N', value: 'N-$bestN'),
-        const Gap(10),
-        _StatTile(label: 'Best Streak', value: '🏆 $bestStreak'),
-      ],
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _StatTile(label: 'Streak', value: '🔥 $currentStreak'),
+          const Gap(10),
+          _BestNStatTile(bestN: bestN),
+          const Gap(10),
+          _StatTile(label: 'Best Streak', value: '🏆 $bestStreak'),
+        ],
+      ),
+    );
+  }
+}
+
+class _BestNStatTile extends StatelessWidget {
+  final int bestN;
+  const _BestNStatTile({required this.bestN});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            NLevelBadge(nLevel: bestN),
+            const Gap(8),
+            Text(
+              'Best N',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: cs.onSurface.withOpacity(0.5),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -569,10 +604,11 @@ class _StatTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: cs.surfaceContainerHighest.withOpacity(0.5),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               value,
@@ -583,62 +619,9 @@ class _StatTile extends StatelessWidget {
             const Gap(2),
             Text(
               label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: cs.onSurface.withValues(alpha: 0.5),
-              ),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(),
               textAlign: TextAlign.center,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// â”€â”€ Practice picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-class _PracticePicker extends ConsumerWidget {
-  final int defaultN;
-  const _PracticePicker({required this.defaultN});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Practice Mode',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Choose your N-level',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const Gap(16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: List.generate(9, (i) {
-                final n = i + 1;
-                return ChoiceChip(
-                  label: Text('N-$n'),
-                  selected: n == defaultN,
-                  onSelected: (_) {
-                    Navigator.pop(context);
-                    context.push(
-                      '/game',
-                      extra: {'nLevel': n, 'mode': 'practice'},
-                    );
-                  },
-                );
-              }),
-            ),
-            const Gap(8),
           ],
         ),
       ),

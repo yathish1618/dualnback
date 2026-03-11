@@ -1,3 +1,21 @@
+# Dual N-Back Version 1.0.1 Release Notes
+
+This patch addresses minor UI tweaks and several gameplay interactions to make the experience more intuitive for users!
+
+## What's New in 1.0.1
+1. **Home Screen Updates**: 
+   - Reordered stats tiles for a more balanced aesthetic.
+   - Added a new "About" tile for context of the game.
+   - Brand new rounded gradient "N-Level" central badge branding.
+   - The Daily Training tile now features a pulsing glowing wrapper effect.
+2. **Settings Fixes**:
+   - Fixed the visual feedback toggle (disabling it now natively highlights pressed buttons in grey).
+   - Fixed the vibration toggle correctly.
+3. **Gameplay**:
+   - The Practice Mode start popup no longer forces a default level. Tapping any N-level initiates the session instantly.
+
+---
+
 # Dual N-Back Version 1.0.0 Release Notes
 
 Welcome to the official 1.0.0 release of Dual N-Back! This initial version includes a fully functional brain training experience across Android and Web.

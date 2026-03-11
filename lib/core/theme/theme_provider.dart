@@ -9,7 +9,7 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) {
 class ThemeNotifier extends StateNotifier<ThemeMode> {
   static const String _key = 'theme_mode';
 
-  ThemeNotifier() : super(ThemeMode.dark) {
+  ThemeNotifier() : super(ThemeMode.light) {
     _loadTheme();
   }
 
@@ -25,8 +25,8 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
         state = ThemeMode.system;
       }
     } else {
-      // No saved preference — default to dark
-      state = ThemeMode.dark;
+      // No saved preference — default to light
+      state = ThemeMode.light;
     }
   }
 
