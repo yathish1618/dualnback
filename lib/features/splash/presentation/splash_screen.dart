@@ -177,11 +177,13 @@ class _SplashScreenState extends State<SplashScreen>
                           width: gridSize / 3,
                           height: gridSize / 3,
                           decoration: BoxDecoration(
-                            color: Colors.black,
-                            border: Border.all(
-                              color: gridBorderColor,
-                              width: 1.5,
-                            ),
+                            color: index == 4 ? Colors.transparent : Colors.black,
+                            border: index == 4
+                                ? null
+                                : Border.all(
+                                    color: gridBorderColor,
+                                    width: 1.5,
+                                  ),
                           ),
                           child:
                               _activeCellIndex == index

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -24,20 +25,48 @@ class AboutScreen extends StatelessWidget {
                 style: tc.bodyMedium,
               ),
               const Gap(8),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => launchUrl(
+                  Uri.parse('https://www.pnas.org/doi/10.1073/pnas.0801268105'),
+                  mode: LaunchMode.externalApplication,
                 ),
-                child: Text(
-                  'Jaeggi, S. M., Buschkuehl, M., Jonides, J., & Perrig, W. J. (2008). '
-                  'Improving fluid intelligence with training on working memory. '
-                  'Proceedings of the National Academy of Sciences, 105(19), 6829–6833.',
-                  style: tc.bodySmall?.copyWith(
-                    fontStyle: FontStyle.italic,
-                    color: cs.onSurface.withValues(alpha: 0.7),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: cs.outline.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Jaeggi, S. M., Buschkuehl, M., Jonides, J., & Perrig, W. J. (2008). '
+                        'Improving fluid intelligence with training on working memory. '
+                        'Proceedings of the National Academy of Sciences, 105(19), 6829–6833.',
+                        style: tc.bodySmall?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          color: cs.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      const Gap(8),
+                      Row(
+                        children: [
+                          Icon(Icons.open_in_new,
+                              size: 13, color: cs.primary),
+                          const Gap(4),
+                          Text(
+                            'View Paper',
+                            style: tc.bodySmall?.copyWith(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -164,11 +193,11 @@ class AboutScreen extends StatelessWidget {
 
           // ── Sandbox mode ───────────────────────────────────────────────────
           _Section(
-            title: 'Sandbox Mode',
+            title: 'Practice Mode',
             icon: Icons.science_outlined,
             children: [
               Text(
-                'Sandbox lets you freely practice at any N-level without affecting your training session record or N-level progression. '
+                'Practice lets you freely practice at any N-level without affecting your training session record or N-level progression. '
                 'Use it to warm up or explore higher N-levels at your own pace.',
                 style: tc.bodyMedium,
               ),

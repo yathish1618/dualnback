@@ -7,23 +7,26 @@ import 'package:flutter/foundation.dart';
 class PlatformAudioPlayer {
   final AudioPlayer _player = AudioPlayer();
 
-  static const String _asset = 'audio/Alphabet.oga';
-
-  Future<void> load() async {
+  Future<void> load(String asset) async {
     // Prime the player so the first letter has no delay on mobile.
     try {
-      await _player.setSource(AssetSource(_asset));
-      debugPrint('[MobileAudio] Source primed');
+      await _player.setSource(AssetSource(asset));
+      debugPrint('[MobileAudio] Source primed: $asset');
     } catch (e) {
       debugPrint('[MobileAudio] load failed: $e');
     }
   }
 
-  Future<void> playFromMs(int startMs, int durationMs, String letter) async {
+  Future<void> playFromMs(
+    int startMs,
+    int durationMs,
+    String letter,
+    String asset,
+  ) async {
     try {
       // play() atomically sets source + seeks + starts — most reliable on Android
       await _player.play(
-        AssetSource(_asset),
+        AssetSource(asset),
         position: Duration(milliseconds: startMs),
       );
       debugPrint('[MobileAudio] ▶ "$letter" @${startMs}ms');

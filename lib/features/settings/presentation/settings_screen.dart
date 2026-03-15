@@ -6,6 +6,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../stats/data/stats_repository.dart';
 import '../../settings/domain/game_settings_provider.dart';
 import '../../stats/domain/game_session.dart';
+import '../../game/services/audio_service.dart' show audioServiceProvider;
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -76,6 +77,41 @@ class SettingsScreen extends ConsumerWidget {
                 title: const Text('Debug Mode'),
                 subtitle: const Text('Show detailed game state table'),
                 secondary: const Icon(Icons.bug_report),
+              );
+            },
+          ),
+          const Divider(),
+          _buildSectionHeader(context, 'Audio'),
+          Consumer(
+            builder: (context, ref, _) {
+              final settings = ref.watch(gameSettingsProvider);
+              return ListTile(
+                leading: const Icon(Icons.record_voice_over),
+                title: const Text('Voice Gender'),
+                // subtitle: const Text('Select the narrator voice'),
+                trailing: SegmentedButton<AudioGender>(
+                  segments: const [
+                    ButtonSegment(
+                      value: AudioGender.female,
+                      label: Text('Female'),
+                      icon: Icon(Icons.female),
+                    ),
+                    ButtonSegment(
+                      value: AudioGender.male,
+                      label: Text('Male'),
+                      icon: Icon(Icons.male),
+                    ),
+                  ],
+                  selected: {settings.audioGender},
+                  onSelectionChanged: (Set<AudioGender> selection) {
+                    ref
+                        .read(gameSettingsProvider.notifier)
+                        .setAudioGender(selection.first);
+                    // Pre-load the newly selected audio file immediately
+                    ref.read(audioServiceProvider).unlockAndPreload();
+                  },
+                  showSelectedIcon: false,
+                ),
               );
             },
           ),

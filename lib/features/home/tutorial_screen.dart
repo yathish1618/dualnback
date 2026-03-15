@@ -10,187 +10,164 @@ import '../game/services/platform_audio/mobile_player.dart'
     if (dart.library.html) '../game/services/platform_audio/web_player.dart';
 
 // ---------------------------------------------------------------------------
-// Demo trial data  (N = 2, 5 trials)
-// Trial 3 → position match (vs Trial 1)
-// Trial 4 → audio   match  (vs Trial 2)
-// Trial 5 → neither
+// Demo data – N = 1, 5 trials
+// Trial 1 : pos=0  (Top-Left),     letter=C  → nothing to compare
+// Trial 2 : pos=0  (Top-Left),     letter=H  → position match vs T1
+// Trial 3 : pos=5  (Middle-Right), letter=H  → audio match vs T2
+// Trial 4 : pos=5  (Middle-Right), letter=H  → BOTH match vs T3
+// Trial 5 : pos=2  (Top-Right),    letter=K  → neither match vs T4
 // ---------------------------------------------------------------------------
+const int _n = 1;
+
 class _Trial {
-  final int position; // 0-8 grid index
+  final int position;
   final String letter;
-  final String positionLabel;
+  final String posLabel;
   const _Trial({
     required this.position,
     required this.letter,
-    required this.positionLabel,
+    required this.posLabel,
   });
 }
 
 const List<_Trial> _demo = [
-  _Trial(position: 0, letter: 'C', positionLabel: 'Top-Left'),
-  _Trial(position: 5, letter: 'H', positionLabel: 'Middle-Right'),
-  _Trial(position: 0, letter: 'K', positionLabel: 'Top-Left'), // pos match T1
-  _Trial(
-    position: 6,
-    letter: 'H',
-    positionLabel: 'Bottom-Left',
-  ), // aud match T2
-  _Trial(position: 2, letter: 'R', positionLabel: 'Top-Right'), // no match
+  _Trial(position: 0, letter: 'C', posLabel: 'Top-Left'),
+  _Trial(position: 0, letter: 'H', posLabel: 'Top-Left'), // pos match T1
+  _Trial(position: 5, letter: 'H', posLabel: 'Mid-Right'), // aud match T2
+  _Trial(position: 5, letter: 'H', posLabel: 'Mid-Right'), // both T3
+  _Trial(position: 2, letter: 'K', posLabel: 'Top-Right'), // neither T4
 ];
-const int _nLevel = 2;
 
 // ---------------------------------------------------------------------------
-// Phase definitions
-// Each phase has a narration message and an action to perform (optional).
+// Audio sprite offsets
 // ---------------------------------------------------------------------------
-enum _PhaseAction { none, highlightN, showGrid, showTrialExplain, trial, wrap }
+// Female-voice timestamps (Alphabet_female.oga) – matches game default
+const Map<String, ({int startMs, int durationMs})> _letterTs = {
+  'C': (startMs: 4301, durationMs: 1131),
+  'H': (startMs: 16848, durationMs: 1339),
+  'K': (startMs: 24382, durationMs: 1979),
+};
+const String _audioAsset = 'audio/Alphabet_female.oga';
 
-enum _ExpectedMatch { none, position, audio }
+// ---------------------------------------------------------------------------
+// Highlight regions
+// ---------------------------------------------------------------------------
+enum _Region {
+  none,
+  nBadge,
+  trialCounter,
+  grid,
+  scoreSheet,
+  gridAndScore, // grid + scoresheet together
+  posButton,
+  audButton,
+  bothButtons,
+  textBox, // only the callout card highlighted (everything else dimmed)
+}
 
-class _Phase {
+enum _ExpectedMatch { none, position, audio, both }
+
+class _Step {
   final String narration;
-  final _PhaseAction action;
-  final int? trialIndex; // only when action == trial
-  final _ExpectedMatch expectedMatch;
-  const _Phase({
+  final _Region highlight;
+  final int? trialIndex;
+  final _ExpectedMatch expected;
+
+  const _Step({
     required this.narration,
-    this.action = _PhaseAction.none,
+    this.highlight = _Region.none,
     this.trialIndex,
-    this.expectedMatch = _ExpectedMatch.none,
+    this.expected = _ExpectedMatch.none,
   });
 }
 
-const List<_Phase> _phases = [
-  // 0 – N-level intro
-  _Phase(
-    narration:
-        "Welcome! Let's walk through a real Dual N-Back game together.\n\n"
-        "You will see a badge in the top-right. That's your **N-level** — the key number of this game.",
-    action: _PhaseAction.highlightN,
+const List<_Step> _steps = [
+  // 0 – N badge
+  _Step(
+    narration: 'This is your **N-level**.\nLet\'s begin with N = **1**.',
+    highlight: _Region.nBadge,
   ),
-  // 1 – N = 2 example
-  _Phase(
+  // 1 – Trial counter
+  _Step(
     narration:
-        "**Game Summary:**\n"
-        "• Each game (also called as block) consists of **N + 2** trials.\n"
-        "• In each trial, you will simultaneously see a position flashing along with the sound of a letter.\n"
-        "• Your goal is to memorise and compare the current trial with what happened **N** trials ago.\n"
-        "\nWe'll use **N = 2** for this demo.",
-    action: _PhaseAction.highlightN,
+        'Each game has 20 + N trials.\nSince N = 1, this game has **21 trials**.\n\nThe number below it is your score.',
+    highlight: _Region.trialCounter,
   ),
   // 2 – Grid intro
-  _Phase(
+  _Step(
     narration:
-        "Here's the game board — a **3 × 3 grid**.\n\n"
-        "• The centre square is always empty.\n"
-        "• That leaves us with **8 active cells**.\n\n",
-    action: _PhaseAction.showGrid,
+        'In each trial, one of the 8 cells **flashes**. Simultaneously you\'ll hear a **letter**.\n\nMemorise both the **position** and the **letter**.',
+    highlight: _Region.grid,
   ),
-  // 3 – Trial concept
-  _Phase(
+  // 3 – Run trial 1 – highlight grid + scoresheet area
+  _Step(
     narration:
-        "In each trial - \n\n"
-        "• A square **flashes** on the grid (position).\n"
-        "• You simultaneously **hear a letter** (audio).\n\n"
-        "• For **N = 2**, your job is to remember what happened **2 trials ago** and compare it with the current trial.",
-    action: _PhaseAction.showTrialExplain,
-  ),
-  // 4 – Trial 1
-  _Phase(
-    narration:
-        "**Trial 1** — watch the grid and listen.\n"
-        "Nothing to compare yet, just memorise the position and letter.\n"
-        "A score sheet is given at the bottom to help you remember during this demo.",
-    action: _PhaseAction.trial,
+        '**Trial 1** — watch the grid and listen.\nNothing to compare yet, just memorise.',
+    highlight: _Region.grid,
     trialIndex: 0,
   ),
-  // 5 – Trial 2
-  _Phase(
+  // 4 – Score sheet explanation – highlight grid + scoresheet
+  _Step(
     narration:
-        "**Trial 2** — another flash, another letter.\n"
-        "You now have 2 trials in memory. Starting from the next trial, you'll need to decide!",
-    action: _PhaseAction.trial,
+        'In this **demo**, a score sheet appears so you can follow along easily.\n(It won\'t be there in the real game.)',
+    highlight: _Region.scoreSheet,
+  ),
+  // 5 – Run trial 2 + highlight scoresheet only
+  _Step(
+    narration:
+        '**Trial 2.** Since N = 1, compare this trial with the previous one (**1 trial ago**).',
+    highlight: _Region.scoreSheet,
     trialIndex: 1,
   ),
-  // 6 – Trial 3 intro (pre-flash)
-  _Phase(
+  // 6 – Position match – highlight only pos button
+  _Step(
     narration:
-        "**Trial 3** is coming up.\n\n"
-        "Remember Trial 1? It was **Top-Left, letter C**.\n"
-        "Now we'll compare **Trial 3** with **Trial 1** (because N = 2).\n"
-        "• If position of Trial 3 is also Top-Left → tap **Position** i.e., Position has matched.\n"
-        "• If letter of Trial 3 is also C → tap **Audio** i.e., Audio has matched.",
-    action: _PhaseAction.showGrid,
+        'Trial 1 was **Top-Left**. Trial 2 is also **Top-Left**.\nPosition **matches** → tap **POSITION**!',
+    highlight: _Region.posButton,
+    expected: _ExpectedMatch.position,
   ),
-  // 7 – Trial 3 live
-  _Phase(
+  // 7 – Run trial 3 + audio match – highlight only aud button
+  _Step(
     narration:
-        "**Position matched Trial 1!** Both are Top-Left.\n\nTap the **Position** button when you see a match like this! ✅",
-    action: _PhaseAction.trial,
+        '**Trial 3.** Trial 2\'s letter was **H**. This letter is also **H**.\nAudio **matches** → tap **AUDIO**!',
+    highlight: _Region.audButton,
     trialIndex: 2,
-    expectedMatch: _ExpectedMatch.position,
+    expected: _ExpectedMatch.audio,
   ),
-  // 8 – Trial 4 live
-  _Phase(
+  // 8 – Run trial 4 + both match
+  _Step(
     narration:
-        "**Trial 4** vs Trial 2 (Middle-Right, H).\n"
-        "Watch and listen... 🎵\n\nThe **letter matched** — both say 'H'! Tap **Audio** when the sound repeats. ✅",
-    action: _PhaseAction.trial,
+        '**Trial 4.** Same position AND letter as Trial 3.\nTap **both** buttons!',
+    highlight: _Region.bothButtons,
     trialIndex: 3,
-    expectedMatch: _ExpectedMatch.audio,
+    expected: _ExpectedMatch.both,
   ),
-  // 9 – Trial 5 live
-  _Phase(
+  // 9 – Run trial 5 + no match – keep buttons visible for context
+  _Step(
     narration:
-        "**Trial 5** vs Trial 3 (Top-Left, K).\n"
-        "Watch and listen...\n\nNeither position nor audio matches — **don't press anything**. Correct rejections count too! ✅",
-    action: _PhaseAction.trial,
+        '**Trial 5.** Neither position nor audio matches Trial 4.\n\nDon\'t tap anything — correct rejections count too! ✅',
+    highlight: _Region.bothButtons,
     trialIndex: 4,
   ),
-  // 10 – Wrap up
-  _Phase(
+  // 10 – N explanation – highlight N-badge
+  _Step(
     narration:
-        "That's Dual N-Back! 🧠\n\n"
-        "• Match trials correctly to increase your N-level.\n"
-        "• Make mistakes and it drops.\n\n"
-        "It's designed to always challenge your limits!",
-    action: _PhaseAction.wrap,
+        'N = **1** → compare with **1 trial ago**.\nN = **2** → compare with **2 trials ago**, and so on.',
+    highlight: _Region.nBadge,
   ),
-  // 11 - Training
-  _Phase(
+  // 11 – Dynamic N – highlight N-badge
+  _Step(
     narration:
-        "**Daily Training** is your main workout:\n\n"
-        "• Complete **20 blocks** per day to build your streak.\n"
-        "• Each block has **N + 2** trials.\n"
-        "• Track your progress over time! 📈",
-    action: _PhaseAction.wrap,
+        'The game **automatically adjusts** N based on your accuracy.\n\nPlay well → N goes up. Make mistakes → N drops. Always at your limit! 🧠',
+    highlight: _Region.nBadge,
   ),
-  // 12 - Practice
-  _Phase(
+  // 12 – Final / About
+  _Step(
     narration:
-        "**Practice Mode**\n\n"
-        "• Warm up or try a specific N-level.\n"
-        "• It won't affect your daily stats or streak. 🧪",
-    action: _PhaseAction.wrap,
-  ),
-  // 13 - Final
-  _Phase(
-    narration:
-        "You're all set! ✅\n\n"
-        "Start your first session on the home screen and begin upgrading your working memory.",
-    action: _PhaseAction.wrap,
+        'You\'re all set! 🎉\n\nFor detailed rules and research behind the game, go to the [**About**] section.',
+    highlight: _Region.textBox,
   ),
 ];
-
-// ---------------------------------------------------------------------------
-// Letter audio timestamps (same as AudioService)
-// ---------------------------------------------------------------------------
-const Map<String, ({int startMs, int durationMs})> _letterTs = {
-  'C': (startMs: 2192, durationMs: 1164),
-  'H': (startMs: 8120, durationMs: 1164),
-  'K': (startMs: 11507, durationMs: 1165),
-  'R': (startMs: 19658, durationMs: 1270),
-};
 
 // ===========================================================================
 // TutorialScreen
@@ -204,104 +181,173 @@ class TutorialScreen extends StatefulWidget {
 
 class _TutorialScreenState extends State<TutorialScreen>
     with SingleTickerProviderStateMixin {
-  int _phase = 0;
-  bool _gridActive = false;
-  int? _activeCell;
-  String? _activeLetter;
-  bool _trialRunning = false;
+  int _stepIndex = 0;
 
-  // History of revealed trials for the debug table
+  bool _trialRunning = false;
+  int? _activeCell;
+  bool _gridActive = false;
   final List<_Trial> _history = [];
-  bool _showButtons = false;
 
   bool? _posFeedback;
   bool? _audFeedback;
 
   Timer? _trialTimer;
   Timer? _stopTimer;
-
   final PlatformAudioPlayer _player = PlatformAudioPlayer();
   bool _audioLoaded = false;
 
-  late AnimationController _nBadgePulse;
+  // GlobalKeys for spotlight measurement
+  final _keyNBadge = GlobalKey();
+  final _keyTrialCounter = GlobalKey();
+  final _keyGrid = GlobalKey();
+  final _keyScoreSheet = GlobalKey();
+  final _keyPosButton = GlobalKey();
+  final _keyAudButton = GlobalKey();
+
+  // N-badge pulse
+  late AnimationController _badgePulse;
+
+  // Cached spotlight rects (updated post-frame)
+  List<Rect> _spotRects = [];
+  // Bottom Y of the control pad (buttons), used to anchor bottom-pinned callout
+  double? _controlPadBottom;
 
   @override
   void initState() {
     super.initState();
-    _nBadgePulse = AnimationController(
+    _badgePulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
-      lowerBound: 0.8,
+      lowerBound: 0.85,
       upperBound: 1.0,
     )..repeat(reverse: true);
 
-    // Preload audio immediately
     _player
-        .load()
+        .load(_audioAsset)
         .then((_) {
           if (mounted) _audioLoaded = true;
         })
         .catchError((e) {
-          debugPrint('[Tutorial] audio preload error: $e');
+          debugPrint('[Tutorial] audio preload: $e');
         });
+
+    // Force a rebuild after first frame so GlobalKey rects are available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refreshSpotlight();
+    });
   }
 
   @override
   void dispose() {
     _trialTimer?.cancel();
     _stopTimer?.cancel();
-    _nBadgePulse.dispose();
+    _badgePulse.dispose();
     _player.dispose();
     super.dispose();
   }
 
-  // ── Navigation ────────────────────────────────────────────────────────────
+  // ── Spotlight helpers ─────────────────────────────────────────────────────
 
-  bool get _isLastPhase => _phase == _phases.length - 1;
+  Rect? _rectFor(GlobalKey key) {
+    final rb = key.currentContext?.findRenderObject() as RenderBox?;
+    if (rb == null || !rb.hasSize) return null;
+    final pos = rb.localToGlobal(Offset.zero);
+    return pos & rb.size;
+  }
+
+  static Rect _pad(Rect r, double p) =>
+      Rect.fromLTRB(r.left - p, r.top - p, r.right + p, r.bottom + p);
+
+  void _refreshSpotlight() {
+    if (!mounted) return;
+    final step = _steps[_stepIndex];
+    final rects = <Rect>[];
+    switch (step.highlight) {
+      case _Region.nBadge:
+        final r = _rectFor(_keyNBadge);
+        if (r != null) rects.add(_pad(r, 10));
+      case _Region.trialCounter:
+        final r = _rectFor(_keyTrialCounter);
+        if (r != null) rects.add(_pad(r, 10));
+      case _Region.grid:
+        final g = _rectFor(_keyGrid);
+        if (g != null) rects.add(_pad(g, 14));
+      case _Region.scoreSheet:
+        final s = _rectFor(_keyScoreSheet);
+        if (s != null && s.height > 0) rects.add(_pad(s, 8));
+      case _Region.gridAndScore:
+        final g = _rectFor(_keyGrid);
+        if (g != null) rects.add(_pad(g, 14));
+        // Only add scoresheet if it has content
+        if (_history.isNotEmpty) {
+          final s = _rectFor(_keyScoreSheet);
+          if (s != null && s.height > 0) rects.add(_pad(s, 8));
+        }
+      case _Region.posButton:
+        final r = _rectFor(_keyPosButton);
+        if (r != null) rects.add(_pad(r, 4));
+      case _Region.audButton:
+        final r = _rectFor(_keyAudButton);
+        if (r != null) rects.add(_pad(r, 4));
+      case _Region.bothButtons:
+        final rp = _rectFor(_keyPosButton);
+        final ra = _rectFor(_keyAudButton);
+        if (rp != null) rects.add(_pad(rp, 4));
+        if (ra != null) rects.add(_pad(ra, 4));
+      case _Region.textBox:
+        // No rects – the spotlight painter will dim everything;
+        // we signal "text box only" by a sentinel rect that will be
+        // handled specially in the painter via a flag.
+        break;
+      case _Region.none:
+        break;
+    }
+    // Always compute the control-pad bottom so the callout can anchor below
+    // the buttons regardless of which region is being highlighted.
+    final rp = _rectFor(_keyPosButton);
+    final ra = _rectFor(_keyAudButton);
+    final padBottom = [
+      if (rp != null) rp.bottom,
+      if (ra != null) ra.bottom,
+    ].fold<double>(0, (a, b) => a > b ? a : b);
+
+    setState(() {
+      _spotRects = rects;
+      if (padBottom > 0) _controlPadBottom = padBottom;
+    });
+  }
+
+  // Primary spotlight rect used to anchor callout bubble.
+  // For gridAndScore the scoresheet (last rect) is the better anchor so the
+  // callout positions itself BELOW the scoresheet, not behind it.
+  Rect? get _primaryRect {
+    if (_spotRects.isEmpty) return null;
+    final h = _current.highlight;
+    // gridAndScore: rects are [grid, scoreSheet]. Grid is now BELOW the
+    // scoresheet, so use the grid rect (first) as the anchor — the callout
+    // will sit just below the grid with the arrow pointing up at it.
+    if (h == _Region.gridAndScore) return _spotRects.first;
+    return _spotRects.first;
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
+
+  bool get _isLast => _stepIndex == _steps.length - 1;
+  _Step get _current => _steps[_stepIndex];
 
   void _next() {
     if (_trialRunning) return;
-    if (_isLastPhase) {
+    if (_isLast) {
       context.pop();
       return;
     }
-    final nextPhase = _phase + 1;
-    final p = _phases[nextPhase];
-    setState(() {
-      _phase = nextPhase;
-      _showButtons = p.expectedMatch != _ExpectedMatch.none || nextPhase >= 7;
-      _posFeedback = null;
-      _audFeedback = null;
-    });
-    if (p.action == _PhaseAction.trial && p.trialIndex != null) {
-      _runTrial(p.trialIndex!);
-    }
+    _goTo(_stepIndex + 1);
   }
 
   void _previous() {
     if (_trialRunning) return;
-    if (_phase == 0) return;
-
-    // Clear history forward of current trial playback index
-    if (_history.isNotEmpty) {
-      final currentP = _phases[_phase];
-      if (currentP.action == _PhaseAction.trial &&
-          currentP.trialIndex != null) {
-        _history.removeWhere((t) => t == _demo[currentP.trialIndex!]);
-      }
-    }
-
-    final prevPhase = _phase - 1;
-    final p = _phases[prevPhase];
-    setState(() {
-      _phase = prevPhase;
-      _showButtons = p.expectedMatch != _ExpectedMatch.none || prevPhase >= 7;
-      _posFeedback = null;
-      _audFeedback = null;
-    });
-    if (p.action == _PhaseAction.trial && p.trialIndex != null) {
-      _runTrial(p.trialIndex!);
-    }
+    if (_stepIndex == 0) return;
+    _goTo(_stepIndex - 1);
   }
 
   void _skip() {
@@ -310,61 +356,74 @@ class _TutorialScreenState extends State<TutorialScreen>
     context.pop();
   }
 
-  void _handleButtonTap(bool isPosition) {
-    if (_trialRunning) return;
-    final phase = _phases[_phase];
+  void _goTo(int idx) {
+    _trialTimer?.cancel();
+    _stopTimer?.cancel();
+    final step = _steps[idx];
+    setState(() {
+      _stepIndex = idx;
+      _posFeedback = null;
+      _audFeedback = null;
+      _gridActive = false;
+      _activeCell = null;
+      // Keep _spotRects as-is until the new measurement arrives to avoid
+      // a flicker frame where the scrim shows with no transparent holes.
+    });
 
-    // Evaluate if user tapped the currently expected button for this phase
-    bool isCorrect = false;
-    if (isPosition && phase.expectedMatch == _ExpectedMatch.position) {
-      isCorrect = true;
-    } else if (!isPosition && phase.expectedMatch == _ExpectedMatch.audio) {
-      isCorrect = true;
+    void scheduleMeasure(int ms) {
+      Future.delayed(Duration(milliseconds: ms), () {
+        if (mounted && _stepIndex == idx) _refreshSpotlight();
+      });
     }
 
-    setState(() {
-      if (isPosition) {
-        _posFeedback = isCorrect;
-      } else {
-        _audFeedback = isCorrect;
-      }
+    // Measure immediately after the first layout frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _stepIndex == idx) _refreshSpotlight();
     });
+    // Re-measure shortly after to catch any quick AnimatedSize transitions.
+    scheduleMeasure(200);
 
-    // Clear feedback shortly after
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        setState(() {
-          _posFeedback = null;
-          _audFeedback = null;
-        });
-      }
-    });
+    if (step.trialIndex != null) {
+      // Start the trial after a short pause so the callout renders first.
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted && _stepIndex == idx) _runTrial(step.trialIndex!);
+      });
+      // Re-measure after the trial + scoresheet AnimatedSize have fully
+      // settled (trial runs for ~1850 ms; AnimatedSize adds ~250 ms).
+      scheduleMeasure(2200);
+      scheduleMeasure(2700);
+    }
   }
 
-  // ── Trial playback ────────────────────────────────────────────────────────
+  // ── Trial playback ─────────────────────────────────────────────────────────
 
   Future<void> _runTrial(int index) async {
-    if (_trialRunning) return;
+    if (index >= _demo.length) return;
     final trial = _demo[index];
+
+    // Ensure history is filled up to this index
+    while (_history.length <= index) {
+      _history.add(_demo[_history.length]);
+    }
 
     setState(() {
       _trialRunning = true;
       _gridActive = true;
       _activeCell = trial.position;
-      _activeLetter = trial.letter;
-      // Add to history immediately (row appears at trial start)
-      if (!_history.contains(trial)) _history.add(trial);
     });
 
-    // Play letter audio
     await _playLetter(trial.letter);
 
-    // Keep grid lit for 1.5 s then dim
     _trialTimer = Timer(const Duration(milliseconds: 1500), () {
       if (mounted) {
         setState(() {
           _gridActive = false;
           _trialRunning = false;
+        });
+        // Re-measure after the scoresheet AnimatedSize finishes expanding
+        // (AnimatedSize duration is 250 ms; add a small buffer).
+        Future.delayed(const Duration(milliseconds: 320), () {
+          if (mounted) _refreshSpotlight();
         });
       }
     });
@@ -376,154 +435,161 @@ class _TutorialScreenState extends State<TutorialScreen>
     _stopTimer?.cancel();
     try {
       if (!_audioLoaded) {
-        await _player.load();
+        await _player.load(_audioAsset);
         _audioLoaded = true;
       }
-      await _player.playFromMs(ts.startMs, ts.durationMs, letter);
+      await _player.playFromMs(ts.startMs, ts.durationMs, letter, _audioAsset);
       if (!kIsWeb) {
         _stopTimer = Timer(Duration(milliseconds: ts.durationMs), () {
           _player.stopAfterMs(0, letter);
         });
       }
     } catch (e) {
-      debugPrint('[Tutorial] audio error: $e');
+      debugPrint('[Tutorial] audio: $e');
     }
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── Button tap ────────────────────────────────────────────────────────────
+
+  void _handleTap(bool isPosition) {
+    if (_trialRunning) return;
+    final exp = _current.expected;
+    bool correct = false;
+    if (isPosition &&
+        (exp == _ExpectedMatch.position || exp == _ExpectedMatch.both)) {
+      correct = true;
+    } else if (!isPosition &&
+        (exp == _ExpectedMatch.audio || exp == _ExpectedMatch.both)) {
+      correct = true;
+    }
+    setState(() {
+      if (isPosition) {
+        _posFeedback = correct;
+      } else {
+        _audFeedback = correct;
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        setState(() {
+          _posFeedback = null;
+          _audFeedback = null;
+        });
+      }
+    });
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final phase = _phases[_phase];
-    final isHighlightN = phase.action == _PhaseAction.highlightN;
+    const totalTrials = 20 + _n; // 21 for N=1
+    final trialNum = _history.length.clamp(1, totalTrials);
+    final exp = _current.expected;
+    final posPulsing =
+        exp == _ExpectedMatch.position || exp == _ExpectedMatch.both;
+    final audPulsing =
+        exp == _ExpectedMatch.audio || exp == _ExpectedMatch.both;
 
     return Scaffold(
-      backgroundColor: cs.surface,
-      body: SafeArea(
-        child: Column(
+      // No explicit backgroundColor → defaults to cs.surface, same as the
+      // real game screen (GameScreen sets no backgroundColor either).
+      body: GestureDetector(
+        onHorizontalDragEnd: (d) {
+          if ((d.primaryVelocity ?? 0) < -300) _next();
+          if ((d.primaryVelocity ?? 0) > 300) _previous();
+        },
+        child: Stack(
           children: [
-            // ── Close + Skip bar ──────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: Row(
+            // ── [1] Game screen replica ─────────────────────────────────────
+            SafeArea(
+              child: Column(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: _skip,
-                    tooltip: 'Exit tutorial',
-                  ),
-                  const Spacer(),
-                  Text(
-                    'How to Play  •  ${_phase + 1} / ${_phases.length}',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.5),
+                  // Header — identical to game_screen header
+                  _buildHeader(cs, trialNum, totalTrials),
+                  const Gap(8),
+
+                  // Score sheet — shown ABOVE the grid so the control-pad
+                  // area has more breathing room for the floating callout.
+                  // AnimatedSize collapses it to zero height when empty.
+                  RepaintBoundary(
+                    key: _keyScoreSheet,
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 250),
+                      child:
+                          _history.isNotEmpty
+                              ? _buildScoreSheet(cs)
+                              : const SizedBox(height: 0),
                     ),
                   ),
-                  const Spacer(),
-                  TextButton(onPressed: _skip, child: const Text('SKIP')),
+
+                  // Grid — same Expanded(flex:3) + maxWidth:400 as game_screen.
+                  Expanded(
+                    flex: 3,
+                    child: Center(
+                      child: RepaintBoundary(
+                        key: _keyGrid,
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 400),
+                          padding: const EdgeInsets.all(16),
+                          child: GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  mainAxisSpacing: 8,
+                                  crossAxisSpacing: 8,
+                                ),
+                            itemCount: 9,
+                            itemBuilder: (ctx, i) {
+                              if (i == 4) return const SizedBox();
+                              return GridCell(
+                                index: i,
+                                isActive: _gridActive && i == _activeCell,
+                                activeColor: cs.secondary,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Control pad — same as the real game screen
+                  _buildControlPad(cs, posPulsing, audPulsing),
+
+                  const Gap(8),
                 ],
               ),
             ),
 
-            // ── Progress bar ──────────────────────────────────────────────
-            LinearProgressIndicator(
-              value: (_phase + 1) / _phases.length,
-              minHeight: 3,
-              backgroundColor: cs.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation(cs.primary),
-            ),
-
-            Expanded(
-              child: GestureDetector(
-                onHorizontalDragEnd: (details) {
-                  if (details.primaryVelocity! < -300) {
-                    // Swipe left -> Next
-                    _next();
-                  } else if (details.primaryVelocity! > 300) {
-                    // Swipe right -> Previous
-                    _previous();
-                  }
-                },
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // ── Narration card ─────────────────────────────────────
-                      _NarrationCard(phase: _phase, phases: _phases),
-
-                      const Gap(16),
-
-                      // ── Mini game area ─────────────────────────────────────
-                      if (_phase < 10)
-                        _buildGameArea(context, cs, isHighlightN)
-                      else if (_phase == 11)
-                        _buildTrainingPreview(context, cs),
-
-                      const Gap(16),
-
-                      // ── History table ──────────────────────────────────────
-                      if (_history.isNotEmpty && _phase < 10)
-                        _buildHistoryTable(context, cs),
-
-                      const Gap(12),
-                    ],
+            // ── [2] Spotlight scrim ─────────────────────────────────────────
+            if (_spotRects.isNotEmpty || _current.highlight == _Region.textBox)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _SpotlightPainter(
+                      rects: _spotRects,
+                      dimOnly: _current.highlight == _Region.textBox,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // ── Next/Prev buttons ─────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Row(
-                children: [
-                  if (_phase > 0) ...[
-                    Expanded(
-                      flex: 1,
-                      child: FilledButton.icon(
-                        onPressed: _trialRunning ? null : _previous,
-                        icon: const Icon(Icons.arrow_back_rounded),
-                        label: const Text('Prev'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          backgroundColor: cs.surfaceContainerHighest,
-                          foregroundColor: cs.onSurface,
-                        ),
-                      ),
-                    ),
-                    const Gap(12),
-                  ],
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: _trialRunning ? null : _next,
-                      icon: Icon(
-                        _isLastPhase
-                            ? Icons.rocket_launch_rounded
-                            : Icons.arrow_forward_rounded,
-                      ),
-                      label: Text(
-                        _isLastPhase ? "LET'S PLAY!" : 'Next',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            // ── [3] Floating callout bubble + nav ──────────────────────────
+            _FloatingCallout(
+              stepIndex: _stepIndex,
+              step: _current,
+              primaryRect: _primaryRect,
+              highlight: _current.highlight,
+              controlPadBottom: _controlPadBottom,
+              isLast: _isLast,
+              trialRunning: _trialRunning,
+              onPrev: _stepIndex > 0 ? _previous : null,
+              onNext: _next,
+              onSkip: _skip,
             ),
           ],
         ),
@@ -531,422 +597,210 @@ class _TutorialScreenState extends State<TutorialScreen>
     );
   }
 
-  Widget _buildGameArea(
-    BuildContext context,
-    ColorScheme cs,
-    bool isHighlightN,
-  ) {
-    final phase = _phases[_phase];
-    final showGrid =
-        phase.action != _PhaseAction.highlightN &&
-        phase.action != _PhaseAction.none;
-    final totalTrials = _demo.length;
-    final currentTrial = _history.length;
+  // ── Sub-widgets ────────────────────────────────────────────────────────────
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Column(
+  Widget _buildHeader(ColorScheme cs, int trialNum, int totalTrials) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 12, right: 12),
+      child: Row(
         children: [
-          // ── Header row: N badge + letter display ──────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // N-level badge (pulsing when highlighted)
-              ScaleTransition(
-                scale:
-                    isHighlightN
-                        ? _nBadgePulse
-                        : const AlwaysStoppedAnimation(1.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [cs.primary, cs.secondary],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow:
-                        isHighlightN
-                            ? [
-                              BoxShadow(
-                                color: cs.primary.withValues(alpha: 0.5),
-                                blurRadius: 16,
-                              ),
-                            ]
-                            : null,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'N',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Gap(4),
-                      const Text(
-                        '2',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
-                      ),
-                    ],
+          // How to Play label (replaces "Practice")
+          Text(
+            'How to Play',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: cs.primary,
+            ),
+          ),
+          // No step counter text in header – it's shown in the callout nav bar
+          const Spacer(),
+          // Trial counter
+          RepaintBoundary(
+            key: _keyTrialCounter,
+            child: Column(
+              children: [
+                Text(
+                  '$trialNum / $totalTrials',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
-              ),
-
-              if (showGrid) const Gap(24),
-
-              // Trial Counter
-              if (showGrid)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
+                Text(
+                  '0',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: cs.primary,
                   ),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Trial $currentTrial / $totalTrials',
-                    style: TextStyle(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-
-              if (_activeLetter != null && showGrid) ...[
-                const Gap(24),
-                // Current letter
-                Column(
-                  children: [
-                    Icon(
-                      Icons.volume_up_rounded,
-                      size: 20,
-                      color: cs.secondary,
-                    ),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Text(
-                        _gridActive ? _activeLetter! : '?',
-                        key: ValueKey('$_gridActive$_activeLetter'),
-                        style: TextStyle(
-                          fontSize: 44,
-                          fontWeight: FontWeight.bold,
-                          color: _gridActive ? cs.secondary : cs.outline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else if (showGrid && _activeLetter == null) ...[
-                const Gap(24),
-                Column(
-                  children: [
-                    Icon(Icons.volume_up_rounded, size: 20, color: cs.outline),
-                    Text(
-                      '?',
-                      style: TextStyle(
-                        fontSize: 44,
-                        fontWeight: FontWeight.bold,
-                        color: cs.outline,
-                      ),
-                    ),
-                  ],
                 ),
               ],
-            ],
+            ),
           ),
-
-          // ── Grid ──────────────────────────────────────────────────────
-          if (showGrid) ...[
-            const Gap(16),
-            Center(
-              child: SizedBox(
-                width: 180,
-                height: 180,
-                child: GridView.count(
-                  crossAxisCount: 3,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: List.generate(9, (i) {
-                    if (i == 4) {
-                      return const SizedBox.shrink(); // Middle center is empty
-                    }
-                    final isActive = _gridActive && i == _activeCell;
-                    return GridCell(
-                      index: i,
-                      isActive: isActive,
-                      activeColor: cs.primary,
-                    );
-                  }),
+          const Gap(10),
+          // N badge
+          ScaleTransition(
+            scale:
+                _current.highlight == _Region.nBadge
+                    ? _badgePulse
+                    : const AlwaysStoppedAnimation(1.0),
+            child: RepaintBoundary(
+              child: Container(
+                key: _keyNBadge,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [cs.primary, cs.secondary]),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      'N',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      '$_n',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-
-          // ── Control buttons (disabled, just for show) ──────────────
-          if (_showButtons) ...[const Gap(16), _buildControlButtons(cs)],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildControlButtons(ColorScheme cs) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _ControlButton(
-          label: 'Position',
-          icon: Icons.grid_on_rounded,
-          isPulsing: _phases[_phase].expectedMatch == _ExpectedMatch.position,
-          feedback: _posFeedback,
-          color: cs.primary,
-          onTap: () => _handleButtonTap(true),
-        ),
-        const Gap(16),
-        _ControlButton(
-          label: 'Audio',
-          icon: Icons.volume_up_rounded,
-          isPulsing: _phases[_phase].expectedMatch == _ExpectedMatch.audio,
-          feedback: _audFeedback,
-          color: cs.secondary,
-          onTap: () => _handleButtonTap(false),
-        ),
-      ],
-    );
-  }
+  Widget _buildScoreSheet(ColorScheme cs) {
+    // No row highlighting in tutorial – all rows show uniformly.
+    const matchRows = <int>{};
 
-  Widget _buildHistoryTable(BuildContext context, ColorScheme cs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.table_chart_outlined, size: 16, color: cs.primary),
-            const Gap(6),
-            Text(
-              'Trial history  (N = $_nLevel)',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: cs.primary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const Gap(8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowHeight: 32,
-            dataRowMinHeight: 36,
-            dataRowMaxHeight: 36,
-            columnSpacing: 18,
-            headingTextStyle: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: cs.onSurface,
-            ),
-            columns: const [
-              DataColumn(label: Text('#')),
-              DataColumn(label: Text('Position')),
-              DataColumn(label: Text('Letter')),
-              DataColumn(label: Text('Pos Match?')),
-              DataColumn(label: Text('Audio Match?')),
-            ],
-            rows: List.generate(_history.length, (i) {
-              final t = _history[i];
-              final canCompare = i >= _nLevel;
-              String posMatch = '–';
-              String audMatch = '–';
-              Color? rowColor;
-
-              // The relevant target to highlight matches against
-              final targetIndex =
-                  (_history.isNotEmpty && _trialRunning)
-                      ? _history.length - 1
-                      : -1;
-
-              if (canCompare) {
-                final ref = _history[i - _nLevel];
-                final pm = t.position == ref.position;
-                final am = t.letter == ref.letter;
-                posMatch = pm ? '✅ Yes' : '❌ No';
-                audMatch = am ? '✅ Yes' : '❌ No';
-              }
-
-              // Highlight rows involved in a match comparison for the *current* trial
-              if (targetIndex >= _nLevel) {
-                final refIndex = targetIndex - _nLevel;
-                if ((i == targetIndex || i == refIndex)) {
-                  final targetTrial = _history[targetIndex];
-                  final refTrial = _history[refIndex];
-                  if (targetTrial.position == refTrial.position ||
-                      targetTrial.letter == refTrial.letter) {
-                    rowColor = cs.primaryContainer.withValues(alpha: 0.35);
-                  }
+    return SizedBox(
+      height: 160,
+      child: Container(
+        color: cs.surfaceContainerHighest,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowHeight: 34,
+              dataRowMinHeight: 28,
+              dataRowMaxHeight: 28,
+              columnSpacing: 12,
+              columns: const [
+                DataColumn(label: Text('#')),
+                DataColumn(label: Text('Position')),
+                DataColumn(label: Text('Letter')),
+                DataColumn(label: Text('Pos Match?')),
+                DataColumn(label: Text('Audio Match?')),
+              ],
+              rows: List.generate(_history.length, (i) {
+                final t = _history[i];
+                final canCompare = i >= _n;
+                String posMatch = '–';
+                String audMatch = '–';
+                if (canCompare) {
+                  final ref = _history[i - _n];
+                  posMatch = t.position == ref.position ? '✅ Yes' : '❌ No';
+                  audMatch = t.letter == ref.letter ? '✅ Yes' : '❌ No';
                 }
-              }
+                final isHighlighted = matchRows.contains(i);
+                Color? rowColor;
+                if (isHighlighted) {
+                  rowColor = cs.primary.withValues(alpha: 0.18);
+                }
 
-              // Highlight the current (latest) trial row lightly if it's not strongly highlighted above
-              final isCurrent = i == _history.length - 1 && _trialRunning;
-              if (isCurrent && rowColor == null) {
-                rowColor = cs.primary.withValues(alpha: 0.12);
-              }
-
-              return DataRow(
-                color: WidgetStateProperty.all(rowColor),
-                cells: [
-                  DataCell(
-                    Text(
-                      '${i + 1}',
-                      style:
-                          isCurrent
-                              ? TextStyle(
-                                color: cs.primary,
-                                fontWeight: FontWeight.bold,
-                              )
-                              : null,
-                    ),
-                  ),
-                  DataCell(Text(t.positionLabel)),
-                  DataCell(
-                    Text(
-                      t.letter,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: cs.secondary,
+                return DataRow(
+                  color: WidgetStateProperty.all(rowColor),
+                  cells: [
+                    DataCell(
+                      Text(
+                        '${i + 1}',
+                        style:
+                            isHighlighted
+                                ? TextStyle(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.bold,
+                                )
+                                : null,
                       ),
                     ),
-                  ),
-                  DataCell(Text(posMatch)),
-                  DataCell(Text(audMatch)),
-                ],
-              );
-            }),
+                    DataCell(
+                      Text(
+                        t.posLabel,
+                        style:
+                            isHighlighted
+                                ? TextStyle(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.bold,
+                                )
+                                : null,
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        t.letter,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isHighlighted ? cs.primary : cs.secondary,
+                        ),
+                      ),
+                    ),
+                    DataCell(Text(posMatch)),
+                    DataCell(Text(audMatch)),
+                  ],
+                );
+              }),
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildTrainingPreview(BuildContext context, ColorScheme cs) {
-    // A mock block grid preview matching training_session_screen's styling
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Column(
+  Widget _buildControlPad(ColorScheme cs, bool posPulsing, bool audPulsing) {
+    final exp = _current.expected;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
         children: [
-          Text(
-            'Daily Blocks',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: cs.onSurface.withValues(alpha: 0.5),
-              letterSpacing: 1,
+          Expanded(
+            child: _TutControlButton(
+              label: 'POSITION',
+              icon: Icons.grid_view_rounded,
+              idleColor: cs.secondary,
+              isPulsing: posPulsing,
+              feedback: _posFeedback,
+              layoutKey: _keyPosButton,
+              onTap: exp != _ExpectedMatch.none ? () => _handleTap(true) : null,
             ),
           ),
           const Gap(16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: constraints.maxWidth > 500 ? 10 : 5,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                  childAspectRatio: 1,
-                ),
-                itemCount: 20,
-                itemBuilder: (context, index) {
-                  final blockNum = index + 1;
-                  // Mock first 3 blocks as done, 4 as running, rest as pending
-                  Color bg;
-                  Color fg;
-                  Widget child;
-                  bool isNext = false;
-
-                  if (index < 3) {
-                    // completed
-                    bg = Colors.green.withValues(alpha: 0.2);
-                    fg = Colors.green;
-                    child = Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$blockNum',
-                          style: TextStyle(
-                            color: fg,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                        Icon(Icons.check_circle_outline, color: fg, size: 14),
-                      ],
-                    );
-                  } else if (index == 3) {
-                    isNext = true;
-                    bg = cs.primary.withValues(alpha: 0.15);
-                    fg = cs.primary;
-                    child = Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$blockNum',
-                          style: TextStyle(
-                            color: fg,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                        Icon(Icons.play_arrow, color: fg, size: 14),
-                      ],
-                    );
-                  } else {
-                    bg = cs.surfaceContainerHighest.withValues(alpha: 0.4);
-                    fg = cs.onSurface.withValues(alpha: 0.3);
-                    child = Text(
-                      '$blockNum',
-                      style: TextStyle(
-                        color: fg,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
-                      ),
-                    );
-                  }
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: bg,
-                      borderRadius: BorderRadius.circular(10),
-                      border:
-                          isNext
-                              ? Border.all(color: cs.primary, width: 2)
-                              : Border.all(color: Colors.transparent),
-                    ),
-                    child: Center(child: child),
-                  );
-                },
-              );
-            },
+          Expanded(
+            child: _TutControlButton(
+              label: 'AUDIO',
+              icon: Icons.headphones_rounded,
+              idleColor: cs.primary,
+              isPulsing: audPulsing,
+              feedback: _audFeedback,
+              layoutKey: _keyAudButton,
+              onTap:
+                  exp != _ExpectedMatch.none ? () => _handleTap(false) : null,
+            ),
           ),
         ],
       ),
@@ -954,111 +808,339 @@ class _TutorialScreenState extends State<TutorialScreen>
   }
 }
 
-// ---------------------------------------------------------------------------
-// Narration card with animated text transitions
-// ---------------------------------------------------------------------------
-class _NarrationCard extends StatelessWidget {
-  final int phase;
-  final List<_Phase> phases;
-  const _NarrationCard({required this.phase, required this.phases});
+// ===========================================================================
+// Floating callout bubble (positions itself near the spotlight)
+// ===========================================================================
+class _FloatingCallout extends StatelessWidget {
+  final int stepIndex;
+  final _Step step;
+  final Rect? primaryRect;
+  final _Region highlight;
+  final double? controlPadBottom; // actual bottom Y of the button row
+  final bool isLast;
+  final bool trialRunning;
+  final VoidCallback? onPrev;
+  final VoidCallback onNext;
+  final VoidCallback onSkip;
+
+  const _FloatingCallout({
+    required this.stepIndex,
+    required this.step,
+    required this.primaryRect,
+    required this.highlight,
+    this.controlPadBottom,
+    required this.isLast,
+    required this.trialRunning,
+    required this.onPrev,
+    required this.onNext,
+    required this.onSkip,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final text = phases[phase].narration;
+    final screenH = MediaQuery.of(context).size.height;
+    final screenW = MediaQuery.of(context).size.width;
+    const cardW = 320.0;
+    const cardPad = 16.0;
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      transitionBuilder:
-          (child, anim) => FadeTransition(
-            opacity: anim,
-            child: SlideTransition(
-              position: Tween(
-                begin: const Offset(0, 0.05),
-                end: Offset.zero,
-              ).animate(anim),
-              child: child,
+    // Horizontal center of the callout card
+    double cardLeft = ((screenW - cardW) / 2).clamp(
+      cardPad,
+      screenW - cardW - cardPad,
+    );
+
+    const double cardEstH = 200.0;
+    const double gap = 12.0;
+    double topPos;
+    bool pointerAboveCard;
+
+    final Rect? pr = primaryRect;
+
+    if (pr != null &&
+        (highlight == _Region.posButton ||
+            highlight == _Region.audButton ||
+            highlight == _Region.bothButtons)) {
+      // Buttons are at the bottom — callout goes ABOVE the spotlight so it
+      // stays on screen, with the arrow pointing DOWN toward the buttons.
+      topPos = pr.top - cardEstH - gap;
+      pointerAboveCard = false; // arrow below card, pointing down toward target
+    } else if (pr == null) {
+      // No spotlight → float near bottom
+      topPos = screenH - cardEstH - 100;
+      pointerAboveCard = false;
+    } else {
+      final bool rectInUpperHalf = pr.center.dy < screenH * 0.5;
+      if (rectInUpperHalf) {
+        topPos = pr.bottom + gap;
+        pointerAboveCard = true;
+      } else {
+        topPos = pr.top - cardEstH - gap;
+        pointerAboveCard = false;
+      }
+    }
+
+    // Clamp to screen bounds so the card is always fully visible.
+    topPos = topPos.clamp(60.0, screenH - cardEstH - 20);
+
+    // Pointer X: point toward highlighted rect center
+    final double pointerCenterX =
+        pr != null
+            ? (pr.center.dx - cardLeft).clamp(20, cardW - 20)
+            : cardW / 2;
+
+    final isLastStep = step.narration.contains('About');
+
+    return Positioned(
+      top: topPos,
+      left: cardLeft,
+      width: cardW,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Pointer triangle (above card → pointing up) ──────────────────
+          if (pr != null && pointerAboveCard)
+            Padding(
+              padding: EdgeInsets.only(left: pointerCenterX - 10),
+              child: CustomPaint(
+                size: const Size(20, 10),
+                painter: _TrianglePainter(color: cs.surface, pointingUp: true),
+              ),
+            ),
+
+          // ── Callout card ─────────────────────────────────────────────────
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            transitionBuilder:
+                (child, anim) => FadeTransition(
+                  opacity: anim,
+                  child: SlideTransition(
+                    position: Tween(
+                      begin: const Offset(0, 0.06),
+                      end: Offset.zero,
+                    ).animate(anim),
+                    child: child,
+                  ),
+                ),
+            child: Container(
+              key: ValueKey(stepIndex),
+              width: cardW,
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  isLastStep
+                      ? _RichNarrationWithAboutLink(
+                        text: step.narration,
+                        onAboutTap: () => context.push('/about'),
+                      )
+                      : _RichNarration(text: step.narration),
+                  const Gap(14),
+
+                  // Nav row: Prev | Next (X/N) | Skip
+                  Row(
+                    children: [
+                      if (onPrev != null) ...[
+                        Expanded(
+                          flex: 1,
+                          child: FilledButton.icon(
+                            onPressed: trialRunning ? null : onPrev,
+                            icon: const Icon(
+                              Icons.arrow_back_rounded,
+                              size: 16,
+                            ),
+                            label: const Text('Prev'),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              backgroundColor: cs.surfaceContainerHighest,
+                              foregroundColor: cs.onSurface,
+                            ),
+                          ),
+                        ),
+                        const Gap(6),
+                      ],
+                      Expanded(
+                        flex: 2,
+                        child: FilledButton.icon(
+                          onPressed: trialRunning ? null : onNext,
+                          icon: Icon(
+                            isLast
+                                ? Icons.rocket_launch_rounded
+                                : Icons.arrow_forward_rounded,
+                            size: 16,
+                          ),
+                          label: Text(
+                            isLast
+                                ? "LET'S PLAY!"
+                                : 'Next (${stepIndex + 2}/${_steps.length})',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Gap(10),
+                      // SKIP
+                      TextButton(
+                        onPressed: onSkip,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
+                          foregroundColor: cs.onSurface.withValues(alpha: 0.55),
+                        ),
+                        child: const Text(
+                          'Skip',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-      child: Container(
-        key: ValueKey(phase),
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              cs.primaryContainer.withValues(alpha: 0.6),
-              cs.secondaryContainer.withValues(alpha: 0.4),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
-        ),
-        child: _RichNarration(text: text),
+
+          // ── Pointer triangle (below card → pointing down) ─────────────────
+          if (pr != null && !pointerAboveCard)
+            Padding(
+              padding: EdgeInsets.only(left: pointerCenterX - 10),
+              child: CustomPaint(
+                size: const Size(20, 10),
+                painter: _TrianglePainter(color: cs.surface, pointingUp: false),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-// Renders `**bold**` markdown-style inline
-class _RichNarration extends StatelessWidget {
-  final String text;
-  const _RichNarration({required this.text});
+// ===========================================================================
+// Spotlight painter
+// ===========================================================================
+class _SpotlightPainter extends CustomPainter {
+  final List<Rect> rects;
+  final bool dimOnly; // true = dim everything with no holes (textBox region)
+  const _SpotlightPainter({required this.rects, this.dimOnly = false});
 
   @override
-  Widget build(BuildContext context) {
-    final spans = <TextSpan>[];
-    final parts = text.split('**');
-    for (int i = 0; i < parts.length; i++) {
-      spans.add(
-        TextSpan(
-          text: parts[i],
-          style: i.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null,
-        ),
+  void paint(Canvas canvas, Size size) {
+    // Semi-transparent gray mask over the whole screen.
+    final scrimColor = Colors.black.withValues(alpha: 0.45);
+
+    if (dimOnly || rects.isEmpty) {
+      canvas.drawRect(Offset.zero & size, Paint()..color = scrimColor);
+      return;
+    }
+
+    // Use saveLayer + BlendMode.clear to punch transparent holes.
+    // This works on ALL Flutter renderers (HTML, CanvasKit, mobile, desktop).
+    // Path.combine(PathOperation.difference) is NOT supported on the HTML
+    // web renderer, which is why holes were never cut before.
+    canvas.saveLayer(Offset.zero & size, Paint());
+    canvas.drawRect(Offset.zero & size, Paint()..color = scrimColor);
+    final clearPaint = Paint()..blendMode = BlendMode.clear;
+    for (final r in rects) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(r, const Radius.circular(8)),
+        clearPaint,
       );
     }
-    return RichText(
-      textAlign: TextAlign.start,
-      text: TextSpan(
-        style: Theme.of(
-          context,
-        ).textTheme.bodyLarge?.copyWith(height: 1.6, fontSize: 15),
-        children: spans,
-      ),
-    );
+    canvas.restore();
   }
+
+  @override
+  bool shouldRepaint(_SpotlightPainter o) =>
+      o.rects != rects || o.dimOnly != dimOnly;
 }
 
-// ---------------------------------------------------------------------------
-// Control button (disabled, pulsing highlight for guidance)
-// ---------------------------------------------------------------------------
-class _ControlButton extends StatefulWidget {
+// ===========================================================================
+// Triangle pointer painter
+// ===========================================================================
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+  final bool pointingUp;
+  const _TrianglePainter({required this.color, required this.pointingUp});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path();
+    if (pointingUp) {
+      path.moveTo(size.width / 2, 0);
+      path.lineTo(0, size.height);
+      path.lineTo(size.width, size.height);
+    } else {
+      path.moveTo(0, 0);
+      path.lineTo(size.width, 0);
+      path.lineTo(size.width / 2, size.height);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TrianglePainter o) =>
+      o.color != color || o.pointingUp != pointingUp;
+}
+
+// ===========================================================================
+// Pulsing control button
+// ===========================================================================
+class _TutControlButton extends StatefulWidget {
   final String label;
   final IconData icon;
+  final Color idleColor;
   final bool isPulsing;
-  final Color color;
   final bool? feedback;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  // Key placed on the inner AnimatedContainer so spotlight measurement
+  // captures the actual visual button rect, not the Expanded layout rect.
+  final GlobalKey? layoutKey;
 
-  const _ControlButton({
+  const _TutControlButton({
     required this.label,
     required this.icon,
+    required this.idleColor,
     required this.isPulsing,
-    required this.color,
     this.feedback,
-    required this.onTap,
+    this.onTap,
+    this.layoutKey,
   });
 
   @override
-  State<_ControlButton> createState() => _ControlButtonState();
+  State<_TutControlButton> createState() => _TutControlButtonState();
 }
 
-class _ControlButtonState extends State<_ControlButton>
+class _TutControlButtonState extends State<_TutControlButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<double> _scale;
 
   @override
   void initState() {
@@ -1069,12 +1151,11 @@ class _ControlButtonState extends State<_ControlButton>
       lowerBound: 0.93,
       upperBound: 1.0,
     );
-    _scale = _ctrl;
     if (widget.isPulsing) _ctrl.repeat(reverse: true);
   }
 
   @override
-  void didUpdateWidget(_ControlButton old) {
+  void didUpdateWidget(_TutControlButton old) {
     super.didUpdateWidget(old);
     if (widget.isPulsing && !old.isPulsing) {
       _ctrl.repeat(reverse: true);
@@ -1092,80 +1173,164 @@ class _ControlButtonState extends State<_ControlButton>
 
   @override
   Widget build(BuildContext context) {
-    Color boxColor =
-        widget.isPulsing
-            ? widget.color.withValues(alpha: 0.15)
-            : Theme.of(context).colorScheme.surfaceContainerHighest;
-
-    Color activeColor = widget.color;
-
-    if (widget.feedback != null) {
-      boxColor = widget.feedback! ? Colors.green : Colors.red;
-      activeColor = Colors.white;
-    }
+    final cs = Theme.of(context).colorScheme;
+    final hasFeedback = widget.feedback != null;
+    final Color bgColor =
+        hasFeedback
+            ? (widget.feedback! ? Colors.green : Colors.red)
+            : cs.surfaceContainerHighest; // natural button appearance
+    final Color fgColor = hasFeedback ? Colors.white : widget.idleColor;
 
     return ScaleTransition(
-      scale: _scale,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 120,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: boxColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color:
-                    widget.feedback != null
-                        ? Colors.transparent
-                        : (widget.isPulsing
-                            ? widget.color.withValues(alpha: 0.7)
-                            : Theme.of(context).colorScheme.outlineVariant),
-                width: widget.isPulsing && widget.feedback == null ? 2 : 1,
-              ),
-              boxShadow:
-                  widget.isPulsing && widget.feedback == null
-                      ? [
-                        BoxShadow(
-                          color: widget.color.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                        ),
-                      ]
-                      : null,
+      scale: _ctrl,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          key: widget.layoutKey, // measures the actual button bounds
+          duration: const Duration(milliseconds: 150),
+          height: 80,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color:
+                  hasFeedback
+                      ? Colors.transparent
+                      : (widget.isPulsing
+                          ? widget.idleColor.withValues(alpha: 0.8)
+                          : cs.outlineVariant),
+              width: widget.isPulsing && !hasFeedback ? 2 : 1.5,
             ),
-            child: Column(
-              children: [
-                Icon(widget.icon, color: activeColor, size: 22),
-                const Gap(4),
+            boxShadow:
+                widget.isPulsing && !hasFeedback
+                    ? [
+                      BoxShadow(
+                        color: widget.idleColor.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                      ),
+                    ]
+                    : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, size: 28, color: fgColor),
+              const Gap(4),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: fgColor,
+                  fontSize: 13,
+                ),
+              ),
+              if (widget.isPulsing && !hasFeedback) ...[
+                const Gap(2),
                 Text(
-                  widget.label,
+                  'TAP!',
                   style: TextStyle(
-                    color: activeColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    color: fgColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
                   ),
                 ),
-                if (widget.isPulsing && widget.feedback == null) ...[
-                  const Gap(4),
-                  Text(
-                    'TAP THIS!',
-                    style: TextStyle(
-                      color: activeColor,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
+  }
+}
+
+// ===========================================================================
+// Rich narration (supports **bold** inline)
+// ===========================================================================
+class _RichNarration extends StatelessWidget {
+  final String text;
+  const _RichNarration({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = Theme.of(
+      context,
+    ).textTheme.bodyLarge?.copyWith(height: 1.55, fontSize: 14.5);
+    return RichText(
+      text: TextSpan(style: baseStyle, children: _parseSpans(text)),
+    );
+  }
+
+  static List<InlineSpan> _parseSpans(String text) {
+    final spans = <InlineSpan>[];
+    final parts = text.split('**');
+    for (int i = 0; i < parts.length; i++) {
+      spans.add(
+        TextSpan(
+          text: parts[i],
+          style: i.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null,
+        ),
+      );
+    }
+    return spans;
+  }
+}
+
+// ===========================================================================
+// Rich narration with a tappable [About] link
+// ===========================================================================
+class _RichNarrationWithAboutLink extends StatelessWidget {
+  final String text;
+  final VoidCallback onAboutTap;
+  const _RichNarrationWithAboutLink({
+    required this.text,
+    required this.onAboutTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final baseStyle = Theme.of(
+      context,
+    ).textTheme.bodyLarge?.copyWith(height: 1.55, fontSize: 14.5);
+    final linkStyle = baseStyle?.copyWith(
+      color: cs.primary,
+      fontWeight: FontWeight.bold,
+      decoration: TextDecoration.underline,
+      decorationColor: cs.primary,
+    );
+
+    // Replace [**About**] with a tappable link span
+    final spans = <InlineSpan>[];
+    // Split on the placeholder [**About**]
+    final parts = text.split('[**About**]');
+    for (int i = 0; i < parts.length; i++) {
+      if (i > 0) {
+        // Insert tappable About link
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: onAboutTap,
+              child: Text('About', style: linkStyle),
+            ),
+          ),
+        );
+      }
+      // Parse **bold** in the surrounding text segments
+      final subParts = parts[i].split('**');
+      for (int j = 0; j < subParts.length; j++) {
+        spans.add(
+          TextSpan(
+            text: subParts[j],
+            style:
+                j.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null,
+          ),
+        );
+      }
+    }
+
+    return RichText(text: TextSpan(style: baseStyle, children: spans));
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../settings/domain/game_settings_provider.dart';
 
 // Conditional import: dart:html AudioElement on web, audioplayers on mobile.
 // This is the key fix for Chrome audio — AudioElement doesn't use the
@@ -11,6 +12,11 @@ import 'platform_audio/mobile_player.dart'
 // Singleton — persists for the full app lifetime.
 final audioServiceProvider = Provider<AudioService>((ref) {
   final service = AudioService();
+  // Keep the gender in sync with the settings provider.
+  ref.listen<AudioGender>(
+    gameSettingsProvider.select((s) => s.audioGender),
+    (_, gender) => service.setGender(gender),
+  );
   ref.onDispose(service.dispose);
   return service;
 });
@@ -18,8 +24,17 @@ final audioServiceProvider = Provider<AudioService>((ref) {
 class AudioService {
   final PlatformAudioPlayer _player = PlatformAudioPlayer();
   Timer? _stopTimer;
+  AudioGender _gender = AudioGender.female;
 
-  static const Map<String, ({int startMs, int durationMs})> _timestamps = {
+  // ── Asset paths ────────────────────────────────────────────────────────────
+  static const String _maleAsset = 'audio/Alphabet.oga';
+  static const String _femaleAsset = 'audio/Alphabet_female.oga';
+
+  String get _currentAsset =>
+      _gender == AudioGender.female ? _femaleAsset : _maleAsset;
+
+  // ── Male timestamps (Alphabet.oga) ─────────────────────────────────────────
+  static const Map<String, ({int startMs, int durationMs})> _maleTimestamps = {
     'A': (startMs: 0, durationMs: 1027),
     'B': (startMs: 1027, durationMs: 1165),
     'C': (startMs: 2192, durationMs: 1164),
@@ -48,13 +63,52 @@ class AudioService {
     'Z': (startMs: 28656, durationMs: 688),
   };
 
+  // ── Female timestamps (9abc05fe...wav) ────────────────────────────────────
+  // begin × 1000 → startMs (rounded), length × 1000 → durationMs (rounded).
+  static const Map<String, ({int startMs, int durationMs})>
+  _femaleTimestamps = {
+    'A': (startMs: 0, durationMs: 863),
+    'B': (startMs: 2054, durationMs: 1116),
+    'C': (startMs: 4301, durationMs: 1131),
+    'D': (startMs: 6876, durationMs: 893),
+    'E': (startMs: 9391, durationMs: 1206),
+    'F': (startMs: 11802, durationMs: 1057),
+    'G': (startMs: 14303, durationMs: 1042),
+    'H': (startMs: 16848, durationMs: 1339),
+    'I': (startMs: 19246, durationMs: 1696),
+    'J': (startMs: 21814, durationMs: 1673),
+    'K': (startMs: 24382, durationMs: 1979),
+    'L': (startMs: 27680, durationMs: 1885),
+    'M': (startMs: 30295, durationMs: 1861),
+    'N': (startMs: 32886, durationMs: 1814),
+    'O': (startMs: 35477, durationMs: 1578),
+    'P': (startMs: 38163, durationMs: 1673),
+    'Q': (startMs: 40707, durationMs: 1578),
+    'R': (startMs: 43369, durationMs: 1602),
+    'S': (startMs: 45913, durationMs: 1484),
+    'T': (startMs: 48481, durationMs: 1484),
+    'U': (startMs: 50907, durationMs: 1649),
+    'V': (startMs: 53640, durationMs: 1555),
+    'W': (startMs: 56420, durationMs: 1673),
+    'X': (startMs: 59105, durationMs: 1602),
+    'Y': (startMs: 61485, durationMs: 1767),
+    'Z': (startMs: 64123, durationMs: 2026),
+  };
+
+  Map<String, ({int startMs, int durationMs})> get _timestamps =>
+      _gender == AudioGender.female ? _femaleTimestamps : _maleTimestamps;
+
+  void setGender(AudioGender gender) {
+    _gender = gender;
+  }
+
   /// Pre-load the audio asset. Call this at game start (post-frame, after first
   /// render, counts as "in user gesture context" on web).
   Future<void> unlockAndPreload() async {
     debugPrint(
-      '[AudioService] unlockAndPreload on ${kIsWeb ? "WEB" : "MOBILE"}',
+      '[AudioService] unlockAndPreload (${_gender.name}) on ${kIsWeb ? "WEB" : "MOBILE"}',
     );
-    await _player.load();
+    await _player.load(_currentAsset);
     debugPrint('[AudioService] Ready to play');
   }
 
@@ -72,7 +126,12 @@ class AudioService {
     // Cancel any pending stop from the previous letter
     _stopTimer?.cancel();
 
-    await _player.playFromMs(timing.startMs, timing.durationMs, letter);
+    await _player.playFromMs(
+      timing.startMs,
+      timing.durationMs,
+      letter,
+      _currentAsset,
+    );
 
     // Schedule stop
     _stopTimer = Timer(Duration(milliseconds: timing.durationMs), () {

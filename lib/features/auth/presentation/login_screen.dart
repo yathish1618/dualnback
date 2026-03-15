@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 
 import '../providers/auth_provider.dart';
+import '../../../core/services/connectivity_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -49,6 +50,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final connectivity = ref.watch(connectivityProvider);
+    // isOnline defaults to true while still loading so we don't flash disabled state
+    final isOnline = connectivity.when(
+      data: (online) => online,
+      loading: () => true,
+      error: (_, __) => true,
+    );
+
     // Consistent border radius for both buttons
     const buttonRadius = BorderRadius.all(Radius.circular(14));
     const buttonShape = RoundedRectangleBorder(borderRadius: buttonRadius);
@@ -69,7 +78,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     width: 88,
                     height: 88,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(11),
                       image: const DecorationImage(
                         image: AssetImage('assets/images/logo.png'),
                         fit: BoxFit.cover,
@@ -100,27 +109,64 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     color: cs.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
-                const Gap(48),
+                const Gap(24),
+
+                // ── Offline banner ──────────────────────────────────────────
+                if (!isOnline)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.errorContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 18,
+                          color: cs.onErrorContainer,
+                        ),
+                        const Gap(10),
+                        Expanded(
+                          child: Text(
+                            "You're offline. Play as guest and data will sync when you reconnect.",
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: cs.onErrorContainer),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const Gap(24),
 
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator())
                 else ...[
-                  // Google sign-in
-                  ElevatedButton.icon(
-                    onPressed: _signInWithGoogle,
-                    icon: const Icon(Icons.login),
-                    label: const Text('Sign in with Google'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: buttonShape,
+                  // Google sign-in — disabled when offline
+                  Tooltip(
+                    message: isOnline ? '' : 'Requires internet connection',
+                    child: ElevatedButton.icon(
+                      onPressed: isOnline ? _signInWithGoogle : null,
+                      icon: const Icon(Icons.login),
+                      label: const Text('Sign in with Google'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: buttonShape,
+                      ),
                     ),
                   ),
                   const Gap(14),
-                  // Guest — same shape as Google button
+                  // Guest — always available (uses offline fallback when needed)
                   FilledButton.icon(
                     onPressed: _signInGuest,
                     icon: const Icon(Icons.person_outline),
-                    label: const Text('Continue as Guest'),
+                    label: Text(
+                      isOnline ? 'Continue as Guest' : 'Continue as Guest (Offline)',
+                    ),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: buttonShape,

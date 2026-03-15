@@ -122,7 +122,7 @@ class HomeScreen extends ConsumerWidget {
                           width: 90,
                           height: 90,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
+                            borderRadius: BorderRadius.circular(11),
                             image: const DecorationImage(
                               image: AssetImage('assets/images/logo.png'),
                               fit: BoxFit.cover,
@@ -131,7 +131,7 @@ class HomeScreen extends ConsumerWidget {
                               BoxShadow(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.primary.withOpacity(0.5),
+                                ).colorScheme.primary.withValues(alpha: 0.5),
                                 blurRadius: 28,
                                 offset: Offset.zero,
                               ),
@@ -325,9 +325,9 @@ class _NavTileState extends State<_NavTile>
         scale: _ctrl,
         child: Container(
           decoration: BoxDecoration(
-            color: c.withOpacity(0.1),
+            color: c.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: c.withOpacity(0.4), width: 1.5),
+            border: Border.all(color: c.withValues(alpha: 0.4), width: 1.5),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -417,7 +417,7 @@ class _TrainingCardState extends State<_TrainingCard>
         animation: _glowAnimation,
         builder: (context, child) {
           final glowColor = (widget.isSessionDone ? Colors.green : cs.primary)
-              .withOpacity(_glowAnimation.value * 0.5);
+              .withValues(alpha: _glowAnimation.value * 0.5);
           return Container(
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
@@ -437,12 +437,12 @@ class _TrainingCardState extends State<_TrainingCard>
                   colors:
                       widget.isSessionDone
                           ? [
-                            Colors.green.withOpacity(0.15),
-                            Colors.teal.withOpacity(0.10),
+                            Colors.green.withValues(alpha: 0.15),
+                            Colors.teal.withValues(alpha: 0.10),
                           ]
                           : [
-                            cs.primary.withOpacity(0.17),
-                            cs.secondary.withOpacity(0.10),
+                            cs.primary.withValues(alpha: 0.17),
+                            cs.secondary.withValues(alpha: 0.10),
                           ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -451,8 +451,8 @@ class _TrainingCardState extends State<_TrainingCard>
                 border: Border.all(
                   color:
                       widget.isSessionDone
-                          ? Colors.green.withOpacity(0.3)
-                          : cs.primary.withOpacity(0.3),
+                          ? Colors.green.withValues(alpha: 0.3)
+                          : cs.primary.withValues(alpha: 0.3),
                 ),
               ),
               child: child,
@@ -480,9 +480,9 @@ class _TrainingCardState extends State<_TrainingCard>
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.15),
+                      color: Colors.green.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.withOpacity(0.4)),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
                     ),
                     child: const Text(
                       '✓ Done',
@@ -514,7 +514,7 @@ class _TrainingCardState extends State<_TrainingCard>
                 Text(
                   '${widget.completedBlocks}/20 blocks',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface.withOpacity(0.6),
+                    color: cs.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 if (!widget.isSessionDone)
@@ -571,7 +571,7 @@ class _BestNStatTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withOpacity(0.5),
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -582,7 +582,7 @@ class _BestNStatTile extends StatelessWidget {
             Text(
               'Best N',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: cs.onSurface.withOpacity(0.5),
+                color: cs.onSurface.withValues(alpha: 0.5),
               ),
               textAlign: TextAlign.center,
             ),
@@ -604,7 +604,7 @@ class _StatTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withOpacity(0.5),
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(

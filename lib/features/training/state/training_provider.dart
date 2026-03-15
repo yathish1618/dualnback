@@ -24,7 +24,7 @@ class UserProfileNotifier extends StateNotifier<AsyncValue<UserProfile>> {
 
   Future<void> _load() async {
     try {
-      // Try local first for speed
+      // Try local first for speed (always succeeds offline)
       final prefs = await SharedPreferences.getInstance();
       final local = prefs.getString(_prefsKey);
       if (local != null) {
@@ -34,12 +34,17 @@ class UserProfileNotifier extends StateNotifier<AsyncValue<UserProfile>> {
       } else {
         state = const AsyncValue.data(UserProfile());
       }
-      // Then sync from Firestore
+      // Then sync from Firestore — gracefully skip if offline
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
-        final remote = await _firestoreService.fetchUserProfile(uid);
-        state = AsyncValue.data(remote);
-        await prefs.setString(_prefsKey, json.encode(remote.toMap()));
+        try {
+          final remote = await _firestoreService.fetchUserProfile(uid);
+          state = AsyncValue.data(remote);
+          await prefs.setString(_prefsKey, json.encode(remote.toMap()));
+        } catch (e) {
+          // Offline or Firestore error — keep local data, no crash
+          debugPrint('[UserProfile] Firestore sync skipped (offline?): $e');
+        }
       }
     } catch (e) {
       debugPrint('[UserProfile] load error: $e');
@@ -49,13 +54,18 @@ class UserProfileNotifier extends StateNotifier<AsyncValue<UserProfile>> {
 
   Future<void> update(UserProfile profile) async {
     state = AsyncValue.data(profile);
-    // Persist locally
+    // Persist locally (always works offline)
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, json.encode(profile.toMap()));
-    // Persist remotely
+    // Persist remotely — queued by Firestore offline persistence if offline
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      await _firestoreService.saveTrainingProfile(uid, profile);
+      try {
+        await _firestoreService.saveTrainingProfile(uid, profile);
+      } catch (e) {
+        // Firestore will replay this write when connectivity is restored
+        debugPrint('[UserProfile] Remote save queued (offline?): $e');
+      }
     }
   }
 
@@ -141,25 +151,47 @@ class TrainingDayNotifier extends StateNotifier<AsyncValue<TrainingDay>> {
         }
       }
 
-      // Try Firestore if no local today
+      // Try Firestore if no local today — gracefully skip if offline
       if (day == null) {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
-          day = await _firestoreService.fetchTrainingDay(uid, _today);
+          try {
+            day = await _firestoreService.fetchTrainingDay(uid, _today);
+          } catch (e) {
+            debugPrint('[TrainingDay] Firestore fetch skipped (offline?): $e');
+          }
         }
       }
 
-      final profile = await _firestoreService.fetchUserProfile(
-        FirebaseAuth.instance.currentUser?.uid ?? '',
-      );
+      // Get starting N level — fall back gracefully if Firestore is unavailable
+      int startingN = 2;
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          final profile = await _firestoreService.fetchUserProfile(uid);
+          startingN = profile.currentNLevel;
+        } else {
+          // Offline guest — try to read from local prefs
+          final prefs2 = await SharedPreferences.getInstance();
+          final localProfile = prefs2.getString('user_profile_v2');
+          if (localProfile != null) {
+            final p = UserProfile.fromMap(
+              Map<String, dynamic>.from(json.decode(localProfile)),
+            );
+            startingN = p.currentNLevel;
+          }
+        }
+      } catch (e) {
+        debugPrint('[TrainingDay] Profile fetch skipped (offline?): $e');
+      }
 
       state = AsyncValue.data(
         day ??
             TrainingDay(
               date: _today,
               blocks: const [],
-              startingNLevel: profile.currentNLevel,
-              endingNLevel: profile.currentNLevel,
+              startingNLevel: startingN,
+              endingNLevel: startingN,
             ),
       );
     } catch (e) {
@@ -193,11 +225,18 @@ class TrainingDayNotifier extends StateNotifier<AsyncValue<TrainingDay>> {
   }
 
   Future<void> _persist(TrainingDay day) async {
+    // Always save locally (survives offline)
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, json.encode(day.toMap()));
+    // Remote save — Firestore offline persistence queues this if offline
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      await _firestoreService.saveTrainingDay(uid, day);
+      try {
+        await _firestoreService.saveTrainingDay(uid, day);
+      } catch (e) {
+        // Will sync automatically when connectivity is restored
+        debugPrint('[TrainingDay] Remote save queued (offline?): $e');
+      }
     }
   }
 

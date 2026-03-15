@@ -7,17 +7,15 @@ import 'dart:js' as js;
 import 'package:flutter/foundation.dart';
 
 class PlatformAudioPlayer {
-  static String get _src =>
-      kReleaseMode
-          ? 'assets/assets/audio/Alphabet.oga'
-          : 'assets/audio/Alphabet.oga';
+  static String _buildSrc(String asset) =>
+      kReleaseMode ? 'assets/assets/$asset' : 'assets/$asset';
 
   js.JsObject? get _sprite {
     final s = js.context['_audioSprite'];
     return s is js.JsObject ? s : null;
   }
 
-  Future<void> load() async {
+  Future<void> load(String asset) async {
     final sprite = _sprite;
     if (sprite == null) {
       debugPrint(
@@ -26,11 +24,16 @@ class PlatformAudioPlayer {
       return;
     }
     // JS load() is async internally; call and don't wait (it sets buffer when done)
-    sprite.callMethod('load', [_src]);
-    debugPrint('[WebAudio] load() called on JS sprite');
+    sprite.callMethod('load', [_buildSrc(asset)]);
+    debugPrint('[WebAudio] load() called on JS sprite: $asset');
   }
 
-  Future<void> playFromMs(int startMs, int durationMs, String letter) async {
+  Future<void> playFromMs(
+    int startMs,
+    int durationMs,
+    String letter,
+    String asset,
+  ) async {
     final sprite = _sprite;
     if (sprite == null) {
       debugPrint('[WebAudio] ✗ _audioSprite unavailable for "$letter"');

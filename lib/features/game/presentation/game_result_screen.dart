@@ -126,6 +126,14 @@ class GameResultScreen extends ConsumerWidget {
     int audMistakes,
     int audMisses,
   ) {
+    final int maxScore = (state.trialResults as List)
+        .where((t) => t.isPositionMatch || t.isAudioMatch)
+        .fold<int>(0, (sum, t) {
+          int pts = 0;
+          if (t.isPositionMatch) pts++;
+          if (t.isAudioMatch) pts++;
+          return sum + pts;
+        });
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
@@ -152,7 +160,7 @@ class GameResultScreen extends ConsumerWidget {
               ),
               _BigStat(
                 label: 'Score',
-                value: '${state.score}',
+                value: '${state.score}/$maxScore',
                 accent: cs.secondary,
               ),
             ],

@@ -72,7 +72,7 @@ class StatsScreen extends ConsumerWidget {
                             children: [
                               Row(
                                 children: [
-                                  Text("Score: ${session.score}"),
+                                  Text("Score: ${session.score}/${session.scoreSheet.fold<int>(0, (sum, item) => sum + (item.isPositionMatch ? 1 : 0) + (item.isAudioMatch ? 1 : 0))}"),
                                   const SizedBox(width: 8),
                                   // Mode badge
                                   Container(

@@ -1,3 +1,14 @@
+# Dual N-Back Version 1.1.0 Release Notes
+
+This minor release introduces new features, including a female voice-over option and a completely revamped interactive tutorial!
+
+## What's New in 1.1.0
+- **Audio Options**: Added a Female voice-over option for auditory stimuli.
+- **Tutorial Revamp**: The "How to Play" section has been completely overhauled to provide an actual interactive walkthrough guide, making it easier than ever to learn the game mechanics.
+-**Offline Support**: Better implementation of offline-first implementation
+
+---
+
 # Dual N-Back Version 1.0.1 Release Notes
 
 This patch addresses minor UI tweaks and several gameplay interactions to make the experience more intuitive for users!

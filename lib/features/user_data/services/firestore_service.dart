@@ -22,7 +22,9 @@ class FirestoreService {
         'lastLogin': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      throw Exception('Failed to save user profile: $e');
+      // Swallow — Firestore offline persistence will replay this write
+      // when connectivity is restored.
+      debugPrint('[FirestoreService] saveUserProfile queued (offline?): $e');
     }
   }
 

@@ -5,6 +5,8 @@ import 'package:gap/gap.dart';
 void showPracticePickerDialog(BuildContext context) {
   showModalBottomSheet(
     context: context,
+    isScrollControlled: true,
+    constraints: const BoxConstraints(maxWidth: double.infinity),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -18,7 +20,8 @@ class _PracticePickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
+      child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,

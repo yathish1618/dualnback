@@ -17,7 +17,10 @@ import '../../features/training/presentation/training_session_screen.dart';
 import '../../features/training/presentation/streak_calendar_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  // effectiveAuthProvider is true when the user is logged into Firebase
+  // OR has a pending offline guest UID — either way they should not see
+  // the login screen.
+  final effectiveAuth = ref.watch(effectiveAuthProvider);
 
   return GoRouter(
     initialLocation: '/splash',
@@ -74,14 +77,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isSplash = state.uri.toString() == '/splash';
 
-      // While auth is still loading never redirect — let splash play.
-      if (authState.isLoading) return null;
+      // While effective auth is still loading never redirect — let splash play.
+      if (effectiveAuth.isLoading) return null;
 
       // If we're on splash, never redirect away — SplashScreen navigates itself.
       if (isSplash) return null;
 
       // After splash has finished navigating, apply auth guard.
-      final isLoggedIn = authState.value != null;
+      // isLoggedIn is true for both Firebase users AND offline guests.
+      final isLoggedIn = effectiveAuth.value ?? false;
       final isLoggingIn = state.uri.toString() == '/login';
 
       if (!isLoggedIn && !isLoggingIn) return '/login';

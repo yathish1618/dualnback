@@ -1,0 +1,51 @@
+﻿Running Gradle task 'bundleRelease'...                          
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 848 bytes (99.7% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 8136 bytes (99.5% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+flutter : 
+At line:1 char:1
++ flutter build appbundle > build_error.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: 
+(:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task 
+':app:checkReleaseAarMetadata'.
+> A failure occurred while executing com.android.bui
+ld.gradle.internal.tasks.CheckAarMetadataWorkAction
+   > 3 issues were found when checking AAR metadata:
+
+       1.  Dependency 
+'androidx.browser:browser:1.9.0' requires Android 
+Gradle plugin 8.9.1 or higher.
+
+           This build currently uses Android Gradle 
+plugin 8.7.0.
+
+       2.  Dependency 
+'androidx.core:core-ktx:1.17.0' requires Android 
+Gradle plugin 8.9.1 or higher.
+
+           This build currently uses Android Gradle 
+plugin 8.7.0.
+
+       3.  Dependency 'androidx.core:core:1.17.0' 
+requires Android Gradle plugin 8.9.1 or higher.
+
+           This build currently uses Android Gradle 
+plugin 8.7.0.
+
+* Try:
+> Run with --stacktrace option to get the stack 
+trace.
+> Run with --info or --debug option to get more log 
+output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 4s
+Running Gradle task 'bundleRelease'...                             65.1s
+Gradle task bundleRelease failed with exit code 1
