@@ -25,6 +25,19 @@ class AudioService {
   final PlatformAudioPlayer _player = PlatformAudioPlayer();
   Timer? _stopTimer;
   AudioGender _gender = AudioGender.female;
+  bool _isBackgrounded = false;
+
+  void setBackgrounded(bool bg) {
+    _isBackgrounded = bg;
+    if (bg) {
+      stopAudio();
+    }
+  }
+
+  void stopAudio() {
+    _stopTimer?.cancel();
+    _player.stopAfterMs(0, '');
+  }
 
   // ── Asset paths ────────────────────────────────────────────────────────────
   static const String _maleAsset = 'audio/Alphabet.oga';
@@ -117,6 +130,8 @@ class AudioService {
 
   /// Play a single letter from the audio sprite.
   Future<void> playLetter(String letter) async {
+    if (_isBackgrounded) return;
+
     final timing = _timestamps[letter.toUpperCase()];
     if (timing == null) {
       debugPrint('[AudioService] Unknown letter "$letter"');

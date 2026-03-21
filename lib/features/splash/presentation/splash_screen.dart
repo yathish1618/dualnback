@@ -180,9 +180,23 @@ class _SplashScreenState extends State<SplashScreen>
                             color: index == 4 ? Colors.transparent : Colors.black,
                             border: index == 4
                                 ? null
-                                : Border.all(
-                                    color: gridBorderColor,
-                                    width: 1.5,
+                                : Border(
+                                    top: BorderSide(
+                                      color: gridBorderColor,
+                                      width: (index ~/ 3) == 0 ? 1.5 : 0.75,
+                                    ),
+                                    left: BorderSide(
+                                      color: gridBorderColor,
+                                      width: (index % 3) == 0 ? 1.5 : 0.75,
+                                    ),
+                                    right: BorderSide(
+                                      color: gridBorderColor,
+                                      width: (index % 3) == 2 ? 1.5 : 0.75,
+                                    ),
+                                    bottom: BorderSide(
+                                      color: gridBorderColor,
+                                      width: (index ~/ 3) == 2 ? 1.5 : 0.75,
+                                    ),
                                   ),
                           ),
                           child:

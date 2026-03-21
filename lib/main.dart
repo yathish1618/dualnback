@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
@@ -18,10 +19,17 @@ void main() async {
 
   // Enable Firestore offline persistence so writes are queued when offline
   // and automatically replayed when connectivity is restored.
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
+  // Note: cacheSizeBytes is only supported on native platforms.
+  if (kIsWeb) {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+    );
+  } else {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  }
 
   // If online, attempt to promote any pending offline guest to a real
   // Firebase anonymous account right at startup.

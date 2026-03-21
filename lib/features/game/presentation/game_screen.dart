@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/widgets/n_level_badge.dart';
@@ -45,10 +46,13 @@ class GameScreen extends ConsumerStatefulWidget {
   ConsumerState<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends ConsumerState<GameScreen> {
+class _GameScreenState extends ConsumerState<GameScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WakelockPlus.enable();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = ref.read(gameSettingsProvider);
       ref.read(audioServiceProvider).unlockAndPreload();
@@ -93,10 +97,24 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    WakelockPlus.disable();
     // AudioService is global/provider managed, or we could dispose it if we owned it.
     // Since it's a provider, we let access management handle it.
     // If we wanted to stop audio on exit, we could do it here.
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final audioService = ref.read(audioServiceProvider);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      audioService.setBackgrounded(true);
+    } else if (state == AppLifecycleState.resumed) {
+      audioService.setBackgrounded(false);
+    }
   }
 
   @override

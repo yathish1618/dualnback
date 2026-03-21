@@ -32,15 +32,18 @@ class StatsScreen extends ConsumerWidget {
           if (sessions.isEmpty) {
             return const Center(child: Text("No games played yet."));
           }
+          final sortedSessions = sessions.toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
           return ListView.builder(
-            itemCount: sessions.length,
+            itemCount: sortedSessions.length,
             itemBuilder: (context, index) {
-              final session = sessions[index];
+              final session = sortedSessions[index];
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: InkWell(
                   onTap: () {
                     context.push('/stats/details', extra: session);
+
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),

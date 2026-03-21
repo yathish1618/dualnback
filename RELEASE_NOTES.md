@@ -1,3 +1,16 @@
+# Dual N-Back Version 1.1.1 Release Notes
+
+This minor update brings essential bug fixes and performance optimizations.
+
+## What's New in 1.1.1
+- **Perfect Target Distribution:** Enforced exact 6 auditory / 6 visual trial allocations evenly across all play modes.
+- **Double Splash Fix:** Improved router navigation states to completely remove accidental double splash screens.
+- **Vibration & Lifecycle:** Refined vibration accuracy upon button presses and ensured audio pauses safely when backgrounding the app.
+- **Visual Stability:** Unified grid border thicknesses on the Splash Screen and prevented text wrapping on the Settings page.
+- **Standardized Audio:** Restricted German audio cues statically to C, G, H, K, P, Q, T, and W.
+
+---
+
 # Dual N-Back Version 1.1.0 Release Notes
 
 This minor release introduces new features, including a female voice-over option and a completely revamped interactive tutorial!

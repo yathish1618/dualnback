@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/home/home_screen.dart';
@@ -17,13 +18,17 @@ import '../../features/training/presentation/training_session_screen.dart';
 import '../../features/training/presentation/streak_calendar_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // effectiveAuthProvider is true when the user is logged into Firebase
-  // OR has a pending offline guest UID — either way they should not see
-  // the login screen.
-  final effectiveAuth = ref.watch(effectiveAuthProvider);
+  // Use a ValueNotifier to feed auth state changes to GoRouter's refreshListenable
+  // This prevents recreating the GoRouter instance, which causes double splash screens.
+  final authNotifier = ValueNotifier<AsyncValue<bool>>(const AsyncLoading<bool>());
+
+  ref.listen<AsyncValue<bool>>(effectiveAuthProvider, (_, next) {
+    authNotifier.value = next;
+  });
 
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: authNotifier,
     routes: [
       GoRoute(
         path: '/splash',
@@ -76,6 +81,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (context, state) {
       final isSplash = state.uri.toString() == '/splash';
+      final effectiveAuth = authNotifier.value;
 
       // While effective auth is still loading never redirect — let splash play.
       if (effectiveAuth.isLoading) return null;

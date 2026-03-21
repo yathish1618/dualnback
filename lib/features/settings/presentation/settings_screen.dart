@@ -87,18 +87,18 @@ class SettingsScreen extends ConsumerWidget {
               final settings = ref.watch(gameSettingsProvider);
               return ListTile(
                 leading: const Icon(Icons.record_voice_over),
-                title: const Text('Voice Gender'),
+                title: const Text('Voice'),
                 // subtitle: const Text('Select the narrator voice'),
                 trailing: SegmentedButton<AudioGender>(
                   segments: const [
                     ButtonSegment(
                       value: AudioGender.female,
-                      label: Text('Female'),
+                      label: Text('F'),
                       icon: Icon(Icons.female),
                     ),
                     ButtonSegment(
                       value: AudioGender.male,
-                      label: Text('Male'),
+                      label: Text('M'),
                       icon: Icon(Icons.male),
                     ),
                   ],

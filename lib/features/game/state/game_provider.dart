@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_constants.dart';
@@ -8,6 +9,7 @@ import '../../stats/domain/score_sheet_item.dart';
 import '../../training/domain/training_models.dart';
 import '../domain/game_state.dart';
 import '../domain/signal_generator.dart';
+import '../../settings/domain/game_settings_provider.dart';
 
 /// Training block result callback — called when a training block ends
 typedef BlockCompleteCallback = Future<void> Function(BlockResult result);
@@ -68,19 +70,8 @@ class GameNotifier extends StateNotifier<GameState> {
     _onBlockComplete = onBlockComplete;
 
     // Generate signals using appropriate strategy
-    final List<GameSignal> signals;
-    if (mode == 'training') {
-      final blockSignals = _signalGenerator.generateBlockSignals(n: nLevel);
-      signals = blockSignals.signals;
-    } else {
-      final trialCount =
-          AppConstants.defaultTrialCount +
-          (nLevel * AppConstants.trialIncrementPerN);
-      signals = _signalGenerator.generateSessionSignals(
-        n: nLevel,
-        length: trialCount,
-      );
-    }
+    final blockSignals = _signalGenerator.generateBlockSignals(n: nLevel);
+    final List<GameSignal> signals = blockSignals.signals;
 
     final trialCount = signals.length;
     state = GameState(
@@ -403,6 +394,9 @@ class GameNotifier extends StateNotifier<GameState> {
       );
       _setButtonFeedback(isPosition: true, correct: true);
       _triggerFeedback(true);
+      if (_ref.read(gameSettingsProvider).vibrationEnabled) {
+        HapticFeedback.lightImpact();
+      }
     } else {
       _handleFalsePositive(isVisual: true);
     }
@@ -436,6 +430,9 @@ class GameNotifier extends StateNotifier<GameState> {
       );
       _setButtonFeedback(isPosition: false, correct: true);
       _triggerFeedback(true);
+      if (_ref.read(gameSettingsProvider).vibrationEnabled) {
+        HapticFeedback.lightImpact();
+      }
     } else {
       _handleFalsePositive(isVisual: false);
     }
@@ -452,6 +449,9 @@ class GameNotifier extends StateNotifier<GameState> {
     }
     _setButtonFeedback(isPosition: isVisual, correct: false);
     _triggerFeedback(false);
+    if (_ref.read(gameSettingsProvider).vibrationEnabled) {
+      HapticFeedback.heavyImpact();
+    }
   }
 
   void _updateScore(double delta) {

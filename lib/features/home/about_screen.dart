@@ -231,6 +231,15 @@ class AboutScreen extends StatelessWidget {
             ],
           ),
 
+          const Gap(16),
+          Center(
+            child: Text(
+              'App Version: 1.1.1',
+              style: tc.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
           const Gap(32),
         ],
       ),

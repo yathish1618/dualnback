@@ -12,27 +12,14 @@ class AppConstants {
 
   // Consonants only (no vowels — matches research paper)
   static const List<String> consonantPool = [
-    'B',
     'C',
-    'D',
-    'F',
     'G',
     'H',
-    'J',
     'K',
-    'L',
-    'M',
-    'N',
     'P',
     'Q',
-    'R',
-    'S',
     'T',
-    'V',
     'W',
-    'X',
-    'Y',
-    'Z',
   ];
 
   // Block composition (per research paper)
